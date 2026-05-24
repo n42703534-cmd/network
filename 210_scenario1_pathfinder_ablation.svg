@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620">
+<rect width="100%" height="100%" fill="white"/>
+<text x="520.0" y="34" text-anchor="middle" font-size="24" font-family="Arial" font-weight="bold">Ablation Sensitivity Relative To OurSinglePath</text>
+<text x="18" y="300.0" transform="rotate(-90 18,300.0)" text-anchor="middle" font-size="14" font-family="Arial">Delta (%)</text>
+<line x1="96" y1="528.00" x2="1016" y2="528.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="533.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">-30</text>
+<line x1="96" y1="414.00" x2="1016" y2="414.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="419.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">-20</text>
+<line x1="96" y1="300.00" x2="1016" y2="300.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="305.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">-10</text>
+<line x1="96" y1="186.00" x2="1016" y2="186.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="191.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">0</text>
+<line x1="96" y1="72.00" x2="1016" y2="72.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="77.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">10</text>
+<line x1="96" y1="186.00" x2="1016" y2="186.00" stroke="#666" stroke-width="1.2"/>
+<text x="211.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">OurSinglePath</text>
+<rect x="130.85" y="186.00" width="27.82" height="1.00" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="163.97" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="197.09" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="230.21" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="263.33" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<text x="441.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">OurNoSourceRelease</text>
+<rect x="360.85" y="179.98" width="27.82" height="6.02" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="393.97" y="186.00" width="27.82" height="7.22" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="427.09" y="186.00" width="27.82" height="62.44" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="460.21" y="186.00" width="27.82" height="270.28" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="493.33" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<text x="671.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">OurNoDownstreamRelease</text>
+<rect x="590.85" y="186.00" width="27.82" height="1.00" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="623.97" y="186.00" width="27.82" height="10.78" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="657.09" y="181.70" width="27.82" height="4.30" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="690.21" y="183.87" width="27.82" height="2.13" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="723.33" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<text x="901.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">OurNoExitPressure</text>
+<rect x="820.85" y="186.00" width="27.82" height="1.00" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="853.97" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="887.09" y="182.79" width="27.82" height="3.21" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="920.21" y="186.00" width="27.82" height="3.63" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="953.33" y="186.00" width="27.82" height="1.00" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="96" y="562" width="16" height="16" fill="#E15759" stroke="#333" stroke-width="0.7"/>
+<text x="120" y="575" font-size="13" font-family="Arial">Evacuation delta %</text>
+<rect x="284" y="562" width="16" height="16" fill="#4E79A7" stroke="#333" stroke-width="0.7"/>
+<text x="308" y="575" font-size="13" font-family="Arial">Queueing delta %</text>
+<rect x="472" y="562" width="16" height="16" fill="#4E79A7" stroke="#333" stroke-width="0.7"/>
+<text x="496" y="575" font-size="13" font-family="Arial">Moderate congestion delta %</text>
+<rect x="660" y="562" width="16" height="16" fill="#4E79A7" stroke="#333" stroke-width="0.7"/>
+<text x="684" y="575" font-size="13" font-family="Arial">Severe congestion delta %</text>
+<rect x="848" y="562" width="16" height="16" fill="#4E79A7" stroke="#333" stroke-width="0.7"/>
+<text x="872" y="575" font-size="13" font-family="Arial">Peak density delta %</text>
+</svg>

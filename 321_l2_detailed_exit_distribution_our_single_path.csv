@@ -1,0 +1,16 @@
+﻿method_label,source_group,source_zone,line,source_type,configured_people,evacuated_people,exit_name,people,share_within_group
+OurSinglePath,L2_hall,,L2,hall_people,350.0,350.0,Exit_L2_4,129.0,0.36857142857142855
+OurSinglePath,L2_hall,,L2,hall_people,350.0,350.0,Exit_L2_3,92.0,0.26285714285714284
+OurSinglePath,L2_hall,,L2,hall_people,350.0,350.0,Exit_L2_2,74.0,0.21142857142857144
+OurSinglePath,L2_hall,,L2,hall_people,350.0,350.0,Exit_L2_6,55.0,0.15714285714285714
+OurSinglePath,L2_platform::Platform_L2_Z1_Wait,Platform_L2_Z1_Wait,L2,platform_waiting,50.0,50.0,Exit_L2_2,50.0,1.0
+OurSinglePath,L2_platform::Platform_L2_Z2_Wait,Platform_L2_Z2_Wait,L2,platform_waiting,69.0,69.0,Exit_L2_4,69.0,1.0
+OurSinglePath,L2_platform::Platform_L2_Z3_Wait,Platform_L2_Z3_Wait,L2,platform_waiting,71.0,71.0,Exit_L2_4,37.0,0.5211267605633803
+OurSinglePath,L2_platform::Platform_L2_Z3_Wait,Platform_L2_Z3_Wait,L2,platform_waiting,71.0,71.0,Exit_L2_3,34.0,0.4788732394366197
+OurSinglePath,L2_platform::Platform_L2_Z4_Wait,Platform_L2_Z4_Wait,L2,platform_waiting,46.0,46.0,Exit_L2_3,34.0,0.7391304347826086
+OurSinglePath,L2_platform::Platform_L2_Z4_Wait,Platform_L2_Z4_Wait,L2,platform_waiting,46.0,46.0,Exit_L2_4,12.0,0.2608695652173913
+OurSinglePath,L2_L16_transfer,L16,L2,transfer_people,152.0,152.0,Exit_L16_11,152.0,1.0
+OurSinglePath,L2_L18_transfer,L18,L2,transfer_people,157.0,157.0,Exit_L18_12,124.0,0.7898089171974523
+OurSinglePath,L2_L18_transfer,L18,L2,transfer_people,157.0,157.0,Exit_L18_17,33.0,0.21019108280254778
+OurSinglePath,L2_L7_transfer,L7,L2,transfer_people,217.0,217.0,Exit_L7_7,125.0,0.576036866359447
+OurSinglePath,L2_L7_transfer,L7,L2,transfer_people,217.0,217.0,Exit_L7_8/9,92.0,0.423963133640553

@@ -1,0 +1,13 @@
+﻿method,line,clearance_time,congestion_exposure_time,moderate_congestion_exposure_time
+ACO,L7,393.5,3032.0,3032.0
+ACO,L2,338.5,21097.5,21097.5
+ACO,L16,341.0,63.5,63.5
+ACO,L18,317.0,1621.0,1621.0
+ImprovedAStar,L7,355.5,5735.0,5735.0
+ImprovedAStar,L2,239.5,19294.0,19294.0
+ImprovedAStar,L16,287.5,0.0,0.0
+ImprovedAStar,L18,258.0,1760.5,1760.5
+OurSinglePath,L7,203.5,3322.0,3322.0
+OurSinglePath,L2,242.5,16291.0,16291.0
+OurSinglePath,L16,283.5,43.5,43.5
+OurSinglePath,L18,268.0,2754.0,2754.0

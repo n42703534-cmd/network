@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620">
+<rect width="100%" height="100%" fill="white"/>
+<text x="520.0" y="34" text-anchor="middle" font-size="24" font-family="Arial" font-weight="bold">Scenario 1 + Pathfinder: Line Clearance Times</text>
+<text x="18" y="300.0" transform="rotate(-90 18,300.0)" text-anchor="middle" font-size="14" font-family="Arial">Clearance time (s)</text>
+<line x1="96" y1="528.00" x2="1016" y2="528.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="533.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">0</text>
+<line x1="96" y1="436.80" x2="1016" y2="436.80" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="441.80" text-anchor="end" font-size="12" font-family="Arial" fill="#444">100</text>
+<line x1="96" y1="345.60" x2="1016" y2="345.60" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="350.60" text-anchor="end" font-size="12" font-family="Arial" fill="#444">200</text>
+<line x1="96" y1="254.40" x2="1016" y2="254.40" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="259.40" text-anchor="end" font-size="12" font-family="Arial" fill="#444">300</text>
+<line x1="96" y1="163.20" x2="1016" y2="163.20" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="168.20" text-anchor="end" font-size="12" font-family="Arial" fill="#444">400</text>
+<line x1="96" y1="72.00" x2="1016" y2="72.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="77.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">500</text>
+<line x1="96" y1="528.00" x2="1016" y2="528.00" stroke="#666" stroke-width="1.2"/>
+<text x="211.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L2</text>
+<rect x="132.62" y="211.54" width="46.37" height="316.46" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="187.82" y="224.76" width="46.37" height="303.24" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="243.02" y="291.34" width="46.37" height="236.66" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<text x="441.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L7</text>
+<rect x="362.62" y="136.75" width="46.37" height="391.25" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="417.82" y="201.05" width="46.37" height="326.95" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="473.02" y="340.58" width="46.37" height="187.42" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<text x="671.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L16</text>
+<rect x="592.62" y="216.55" width="46.37" height="311.45" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="647.82" y="265.34" width="46.37" height="262.66" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="703.02" y="268.99" width="46.37" height="259.01" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<text x="901.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L18</text>
+<rect x="822.62" y="217.46" width="46.37" height="310.54" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="877.82" y="268.99" width="46.37" height="259.01" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="933.02" y="295.90" width="46.37" height="232.10" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="96" y="562" width="16" height="16" fill="#4E79A7" stroke="#333" stroke-width="0.7"/>
+<text x="120" y="575" font-size="13" font-family="Arial">ACO</text>
+<rect x="284" y="562" width="16" height="16" fill="#59A14F" stroke="#333" stroke-width="0.7"/>
+<text x="308" y="575" font-size="13" font-family="Arial">PaperImprovedAStar</text>
+<rect x="472" y="562" width="16" height="16" fill="#E15759" stroke="#333" stroke-width="0.7"/>
+<text x="496" y="575" font-size="13" font-family="Arial">OurSinglePath</text>
+</svg>

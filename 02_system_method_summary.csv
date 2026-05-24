@@ -1,0 +1,4 @@
+﻿method,queueing_time,congestion_exposure_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,time,avg_speed,wall_clock_runtime_s
+ACO,53070.5,25814.0,25814.0,14363.0,393.5,1.3999999999998056,51.093331299955025
+ImprovedAStar,54153.5,26789.5,26789.5,14073.5,355.5,1.3999999999998403,78.68759380001575
+OurSinglePath,48721.5,22410.5,22410.5,12363.5,283.5,1.3999999999998618,97.5135252000764

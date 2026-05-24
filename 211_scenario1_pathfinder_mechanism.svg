@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="580" viewBox="0 0 980 580">
+<rect width="100%" height="100%" fill="white"/>
+<text x="490.0" y="34" text-anchor="middle" font-size="24" font-family="Arial" font-weight="bold">Why Our Method Diverges From PaperImprovedAStar</text>
+<text x="18" y="280.0" transform="rotate(-90 18,280.0)" text-anchor="middle" font-size="14" font-family="Arial">Average path cost contribution</text>
+<line x1="96" y1="488.00" x2="956" y2="488.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="493.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">0</text>
+<line x1="96" y1="404.80" x2="956" y2="404.80" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="409.80" text-anchor="end" font-size="12" font-family="Arial" fill="#444">50</text>
+<line x1="96" y1="321.60" x2="956" y2="321.60" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="326.60" text-anchor="end" font-size="12" font-family="Arial" fill="#444">100</text>
+<line x1="96" y1="238.40" x2="956" y2="238.40" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="243.40" text-anchor="end" font-size="12" font-family="Arial" fill="#444">150</text>
+<line x1="96" y1="155.20" x2="956" y2="155.20" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="160.20" text-anchor="end" font-size="12" font-family="Arial" fill="#444">200</text>
+<line x1="96" y1="72.00" x2="956" y2="72.00" stroke="#E3E3E3" stroke-width="1"/>
+<text x="84" y="77.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">250</text>
+<rect x="229.30" y="384.91" width="163.40" height="103.09" fill="#BDBDBD" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="120.22" width="163.40" height="264.69" fill="#8CD17D" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="118.65" width="163.40" height="1.57" fill="#76B7B2" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="111.79" width="163.40" height="6.85" fill="#F28E2B" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="111.71" width="163.40" height="0.09" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="104.34" width="163.40" height="7.36" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<text x="311.00" y="554" text-anchor="middle" font-size="12" font-family="Arial">BaselineStylePath</text>
+<rect x="659.30" y="306.86" width="163.40" height="181.14" fill="#BDBDBD" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="178.85" width="163.40" height="128.01" fill="#8CD17D" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="177.21" width="163.40" height="1.64" fill="#76B7B2" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="173.20" width="163.40" height="4.01" fill="#F28E2B" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="172.87" width="163.40" height="0.32" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="170.34" width="163.40" height="2.54" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<text x="741.00" y="554" text-anchor="middle" font-size="12" font-family="Arial">OurChosenPath</text>
+<rect x="96" y="522" width="16" height="16" fill="#BDBDBD" stroke="#333" stroke-width="0.7"/>
+<text x="120" y="535" font-size="13" font-family="Arial">base_cost</text>
+<rect x="276" y="522" width="16" height="16" fill="#8CD17D" stroke="#333" stroke-width="0.7"/>
+<text x="300" y="535" font-size="13" font-family="Arial">gate_queue_penalty</text>
+<rect x="456" y="522" width="16" height="16" fill="#76B7B2" stroke="#333" stroke-width="0.7"/>
+<text x="480" y="535" font-size="13" font-family="Arial">service_penalty</text>
+<rect x="636" y="522" width="16" height="16" fill="#F28E2B" stroke="#333" stroke-width="0.7"/>
+<text x="660" y="535" font-size="13" font-family="Arial">source_release_penalty</text>
+<rect x="816" y="522" width="16" height="16" fill="#E15759" stroke="#333" stroke-width="0.7"/>
+<text x="840" y="535" font-size="13" font-family="Arial">downstream_release_penalty</text>
+<rect x="996" y="522" width="16" height="16" fill="#4E79A7" stroke="#333" stroke-width="0.7"/>
+<text x="1020" y="535" font-size="13" font-family="Arial">exit_pressure_penalty</text>
+</svg>

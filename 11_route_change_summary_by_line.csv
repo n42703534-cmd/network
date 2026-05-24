@@ -1,0 +1,5 @@
+﻿line,event_count,source_count,aco_change_count,paper_change_count,our_change_count,aco_vs_paper_divergence,aco_vs_our_divergence,paper_vs_our_divergence,first_time,last_time
+L18,31754,15,14036,88,270,27033,16580,28243,0.5,1126.5
+L16,25025,12,5431,38,84,24377,4130,24509,0.5,1126.5
+L7,10275,5,5172,32,498,8245,8135,7732,0.5,1126.5
+L2,9021,5,1788,16,167,6568,4318,8130,0.5,1126.5
