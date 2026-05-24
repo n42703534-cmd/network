@@ -1,0 +1,14 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Office temporary lock files
+~$*.pptx
+~$*.docx
+~$*.xlsx
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
+*.tmp
+*.log
