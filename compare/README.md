@@ -13,11 +13,11 @@ python main.py
 - `mode1`: 常规突发
 - `mode4`: 双向满载
 
-再选择算法模式：
+再选择权重模式。算法始终固定为 `AdaptiveSingleNextHop`：
 
-- `ACO`
-- `ImprovedAStar`
-- `AdaptiveSingleNextHop`
+- `Pathfinder-compatible / time-oriented`: 降低拥堵、下游释放、出口压力等惩罚，使输出更接近 Pathfinder 静态最短路分配。
+- `Balanced`: 保持当前权重，兼顾时间、排队和拥堵暴露。
+- `Safety-oriented`: 提高拥堵和瓶颈惩罚，优先降低高密度暴露和出口集中。
 - 全部运行
 
 输出只生成 CSV，不生成图表：
@@ -36,7 +36,7 @@ compare/outputs/运行时间/
 也可以直接命令行指定：
 
 ```powershell
-python main.py --scenario 1 --method 3
-python main.py --scenario 4 --method all
-python main.py --scenario all --method all
+python main.py --scenario 1 --profile 2
+python main.py --scenario 4 --profile all
+python main.py --scenario all --profile all
 ```

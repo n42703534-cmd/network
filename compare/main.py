@@ -5,6 +5,7 @@ import csv
 import importlib.util
 import sys
 import types
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -60,6 +61,8 @@ _bootstrap_project_imports()
 import network  # noqa: E402
 
 
+ALGORITHM_LABEL = "AdaptiveSingleNextHop"
+
 BASE_LOADS = {
     "L2": {"platform_waiting": 236, "hall_people": 350, "transfer_people": 526},
     "L7": {"platform_waiting": 219, "hall_people": 112, "transfer_people": 169},
@@ -73,10 +76,59 @@ SCENARIOS = {
     "4": {"mode": 4, "label": "mode4_bidirectional_full_train", "name": "mode4 双向满载"},
 }
 
-METHODS = {
-    "1": {"label": "ACO", "method": network.ANT_COLONY_METHOD},
-    "2": {"label": "ImprovedAStar", "method": network.PAPER_SINGLE_PATH_METHOD},
-    "3": {"label": "AdaptiveSingleNextHop", "method": network.OUR_SINGLE_PATH_METHOD},
+WEIGHT_ATTRS = [
+    "OUR_GATE_QUEUE_WEIGHT",
+    "OUR_GATE_SOURCE_RELEASE_WEIGHT",
+    "OUR_GATE_SERVICE_RATE_WEIGHT",
+    "OUR_PATH_DOWNSTREAM_RELEASE_WEIGHT",
+    "OUR_PATH_EXIT_PRESSURE_WEIGHT",
+    "OUR_DENSITY_MODERATE_FACTOR",
+    "OUR_DENSITY_SEVERE_SURCHARGE",
+    "OUR_GATE_OVERLOAD_FACTOR",
+    "OUR_SERVICE_WAIT_TIME_WEIGHT",
+]
+
+BASE_WEIGHTS = {name: getattr(network.spr, name) for name in WEIGHT_ATTRS}
+
+PROFILES = {
+    "1": {
+        "label": "PathfinderCompatible_TimeOriented",
+        "name": "Pathfinder-compatible / time-oriented",
+        "description": "降低拥堵、下游释放和出口压力惩罚，使出口分配更接近静态最短路。",
+        "weights": {
+            "OUR_GATE_QUEUE_WEIGHT": 1.0,
+            "OUR_GATE_SOURCE_RELEASE_WEIGHT": 0.03,
+            "OUR_GATE_SERVICE_RATE_WEIGHT": 1.5,
+            "OUR_PATH_DOWNSTREAM_RELEASE_WEIGHT": 0.08,
+            "OUR_PATH_EXIT_PRESSURE_WEIGHT": 0.08,
+            "OUR_DENSITY_MODERATE_FACTOR": 0.20,
+            "OUR_DENSITY_SEVERE_SURCHARGE": 0.80,
+            "OUR_GATE_OVERLOAD_FACTOR": 0.20,
+            "OUR_SERVICE_WAIT_TIME_WEIGHT": 0.45,
+        },
+    },
+    "2": {
+        "label": "Balanced",
+        "name": "Balanced",
+        "description": "保持当前权重，兼顾时间、排队和拥堵暴露。",
+        "weights": dict(BASE_WEIGHTS),
+    },
+    "3": {
+        "label": "SafetyOriented",
+        "name": "Safety-oriented",
+        "description": "提高拥堵和瓶颈惩罚，优先降低高密度暴露和出口集中。",
+        "weights": {
+            "OUR_GATE_QUEUE_WEIGHT": 5.5,
+            "OUR_GATE_SOURCE_RELEASE_WEIGHT": 0.28,
+            "OUR_GATE_SERVICE_RATE_WEIGHT": 4.0,
+            "OUR_PATH_DOWNSTREAM_RELEASE_WEIGHT": 0.75,
+            "OUR_PATH_EXIT_PRESSURE_WEIGHT": 0.90,
+            "OUR_DENSITY_MODERATE_FACTOR": 1.00,
+            "OUR_DENSITY_SEVERE_SURCHARGE": 4.00,
+            "OUR_GATE_OVERLOAD_FACTOR": 1.00,
+            "OUR_SERVICE_WAIT_TIME_WEIGHT": 1.60,
+        },
+    },
 }
 
 
@@ -100,10 +152,22 @@ def selected_scenarios(choice: str) -> list[dict]:
     return [SCENARIOS[choice]]
 
 
-def selected_methods(choice: str) -> list[dict]:
+def selected_profiles(choice: str) -> list[dict]:
     if choice == "all":
-        return [METHODS["1"], METHODS["2"], METHODS["3"]]
-    return [METHODS[choice]]
+        return [PROFILES["1"], PROFILES["2"], PROFILES["3"]]
+    return [PROFILES[choice]]
+
+
+@contextmanager
+def temporary_weight_profile(profile: dict):
+    original = {name: getattr(network.spr, name) for name in WEIGHT_ATTRS}
+    try:
+        for name, value in profile["weights"].items():
+            setattr(network.spr, name, value)
+        yield
+    finally:
+        for name, value in original.items():
+            setattr(network.spr, name, value)
 
 
 def build_pop(mode: int) -> tuple[dict, int]:
@@ -151,13 +215,15 @@ def exit_hhi(exit_usage: dict) -> tuple[float, float, int]:
     return sum(share * share for share in shares), max(shares, default=0.0), len(shares)
 
 
-def summary_row(scenario: dict, total_people: int, method_label: str, metrics: dict) -> dict:
+def summary_row(scenario: dict, total_people: int, profile: dict, metrics: dict) -> dict:
     hhi, max_share, active_count = exit_hhi(metrics.get("exit_usage", {}))
     return {
         "scenario_mode": scenario["mode"],
         "scenario_label": scenario["label"],
         "total_people": total_people,
-        "method": method_label,
+        "algorithm": ALGORITHM_LABEL,
+        "guidance_mode": profile["label"],
+        "guidance_description": profile["description"],
         "evacuation_time_s": metrics.get("time", 0.0),
         "avg_travel_time_s": metrics.get("avg_travel_time", 0.0),
         "queueing_time_person_s": metrics.get("queueing_time", 0.0),
@@ -173,7 +239,7 @@ def summary_row(scenario: dict, total_people: int, method_label: str, metrics: d
     }
 
 
-def exit_rows(scenario: dict, method_label: str, metrics: dict) -> list[dict]:
+def exit_rows(scenario: dict, profile: dict, metrics: dict) -> list[dict]:
     usage = metrics.get("exit_usage", {})
     total = sum(float(value) for value in usage.values())
     rows = []
@@ -183,7 +249,8 @@ def exit_rows(scenario: dict, method_label: str, metrics: dict) -> list[dict]:
             {
                 "scenario_mode": scenario["mode"],
                 "scenario_label": scenario["label"],
-                "method": method_label,
+                "algorithm": ALGORITHM_LABEL,
+                "guidance_mode": profile["label"],
                 "exit_name": exit_name,
                 "people": people,
                 "share": people / total if total > 0 else 0.0,
@@ -192,7 +259,7 @@ def exit_rows(scenario: dict, method_label: str, metrics: dict) -> list[dict]:
     return rows
 
 
-def line_rows(scenario: dict, total_people: int, method_label: str, metrics: dict) -> list[dict]:
+def line_rows(scenario: dict, total_people: int, profile: dict, metrics: dict) -> list[dict]:
     rows = []
     for line in network.ALL_LINE_IDS:
         rows.append(
@@ -200,7 +267,8 @@ def line_rows(scenario: dict, total_people: int, method_label: str, metrics: dic
                 "scenario_mode": scenario["mode"],
                 "scenario_label": scenario["label"],
                 "total_people": total_people,
-                "method": method_label,
+                "algorithm": ALGORITHM_LABEL,
+                "guidance_mode": profile["label"],
                 "line": line,
                 "clearance_time_s": metrics.get("clearance_times_by_line", {}).get(line),
                 "core_clearance_time_s": metrics.get("clearance_times_by_line_core", {}).get(line),
@@ -213,7 +281,7 @@ def line_rows(scenario: dict, total_people: int, method_label: str, metrics: dic
     return rows
 
 
-def bottleneck_rows(scenario: dict, method_label: str, metrics: dict, top_k: int = 20) -> list[dict]:
+def bottleneck_rows(scenario: dict, profile: dict, metrics: dict, top_k: int = 20) -> list[dict]:
     node_stats = metrics.get("node_stats", {})
     ranked = sorted(
         node_stats.items(),
@@ -230,7 +298,8 @@ def bottleneck_rows(scenario: dict, method_label: str, metrics: dict, top_k: int
             {
                 "scenario_mode": scenario["mode"],
                 "scenario_label": scenario["label"],
-                "method": method_label,
+                "algorithm": ALGORITHM_LABEL,
+                "guidance_mode": profile["label"],
                 "rank": rank,
                 "node": node,
                 "queue_seconds_person_s": stat.get("queue_seconds", 0.0),
@@ -245,14 +314,14 @@ def bottleneck_rows(scenario: dict, method_label: str, metrics: dict, top_k: int
     return rows
 
 
-def run_once(scenario: dict, method_item: dict) -> tuple[dict, list[dict], list[dict], list[dict]]:
+def run_once(scenario: dict, profile: dict) -> tuple[dict, list[dict], list[dict], list[dict]]:
     pop, total_people = build_pop(scenario["mode"])
-    method_label = method_item["label"]
     print()
-    print(f"开始运行: {scenario['name']} | {method_label} | 总人数 {total_people}")
+    print(f"开始运行: {scenario['name']} | {ALGORITHM_LABEL} | {profile['name']} | 总人数 {total_people}")
     graph = network.build_graph()
-    metrics = network.run_simulation_for_metrics_timed(graph, pop, method=method_item["method"])
-    row = summary_row(scenario, total_people, method_label, metrics)
+    with temporary_weight_profile(profile):
+        metrics = network.run_simulation_for_metrics_timed(graph, pop, method=network.OUR_SINGLE_PATH_METHOD)
+    row = summary_row(scenario, total_people, profile, metrics)
     print(
         f"完成: 疏散 {row['evacuation_time_s']:.1f}s | "
         f"排队 {row['queueing_time_person_s']:.1f} person-s | "
@@ -261,16 +330,22 @@ def run_once(scenario: dict, method_item: dict) -> tuple[dict, list[dict], list[
     )
     return (
         row,
-        exit_rows(scenario, method_label, metrics),
-        line_rows(scenario, total_people, method_label, metrics),
-        bottleneck_rows(scenario, method_label, metrics),
+        exit_rows(scenario, profile, metrics),
+        line_rows(scenario, total_people, profile, metrics),
+        bottleneck_rows(scenario, profile, metrics),
     )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run mode1/mode4 evacuation comparison without charts.")
+    parser = argparse.ArgumentParser(
+        description="Run AdaptiveSingleNextHop mode1/mode4 weight-profile comparison without charts."
+    )
     parser.add_argument("--scenario", choices=["1", "4", "all"], help="1=mode1, 4=mode4, all=both")
-    parser.add_argument("--method", choices=["1", "2", "3", "all"], help="1=ACO, 2=ImprovedAStar, 3=AdaptiveSingleNextHop, all=all")
+    parser.add_argument(
+        "--profile",
+        choices=["1", "2", "3", "all"],
+        help="1=Pathfinder-compatible/time-oriented, 2=Balanced, 3=Safety-oriented, all=all profiles",
+    )
     return parser.parse_args()
 
 
@@ -285,15 +360,15 @@ def main() -> None:
         },
         default="1",
     )
-    method_choice = args.method or choose_from_menu(
-        "请选择算法模式",
+    profile_choice = args.profile or choose_from_menu(
+        "请选择权重模式（算法固定为 AdaptiveSingleNextHop）",
         {
-            "1": "ACO",
-            "2": "ImprovedAStar",
-            "3": "AdaptiveSingleNextHop",
-            "all": "三个算法都跑",
+            "1": "Pathfinder-compatible / time-oriented",
+            "2": "Balanced",
+            "3": "Safety-oriented",
+            "all": "三种权重模式都跑",
         },
-        default="3",
+        default="2",
     )
 
     run_dir = ensure_run_dir()
@@ -306,8 +381,8 @@ def main() -> None:
     all_bottleneck_rows = []
 
     for scenario in selected_scenarios(scenario_choice):
-        for method_item in selected_methods(method_choice):
-            summary, exits, lines, bottlenecks = run_once(scenario, method_item)
+        for profile in selected_profiles(profile_choice):
+            summary, exits, lines, bottlenecks = run_once(scenario, profile)
             summary_rows.append(summary)
             all_exit_rows.extend(exits)
             all_line_rows.extend(lines)
@@ -320,7 +395,9 @@ def main() -> None:
             "scenario_mode",
             "scenario_label",
             "total_people",
-            "method",
+            "algorithm",
+            "guidance_mode",
+            "guidance_description",
             "evacuation_time_s",
             "avg_travel_time_s",
             "queueing_time_person_s",
@@ -338,7 +415,7 @@ def main() -> None:
     write_csv(
         run_dir / "exit_usage.csv",
         all_exit_rows,
-        ["scenario_mode", "scenario_label", "method", "exit_name", "people", "share"],
+        ["scenario_mode", "scenario_label", "algorithm", "guidance_mode", "exit_name", "people", "share"],
     )
     write_csv(
         run_dir / "line_metrics.csv",
@@ -347,7 +424,8 @@ def main() -> None:
             "scenario_mode",
             "scenario_label",
             "total_people",
-            "method",
+            "algorithm",
+            "guidance_mode",
             "line",
             "clearance_time_s",
             "core_clearance_time_s",
@@ -363,7 +441,8 @@ def main() -> None:
         [
             "scenario_mode",
             "scenario_label",
-            "method",
+            "algorithm",
+            "guidance_mode",
             "rank",
             "node",
             "queue_seconds_person_s",
