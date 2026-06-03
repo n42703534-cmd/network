@@ -6,7 +6,6 @@ import importlib.util
 import sys
 import types
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 
 
@@ -194,8 +193,8 @@ def build_pop(mode: int) -> tuple[dict, int]:
     return pop, total
 
 
-def ensure_run_dir() -> Path:
-    run_dir = OUTPUT_ROOT / datetime.now().strftime("%Y%m%d_%H%M%S")
+def combo_output_dir(scenario: dict, profile: dict) -> Path:
+    run_dir = OUTPUT_ROOT / scenario["label"] / profile["label"]
     run_dir.mkdir(parents=True, exist_ok=True)
     return run_dir
 
@@ -336,6 +335,81 @@ def run_once(scenario: dict, profile: dict) -> tuple[dict, list[dict], list[dict
     )
 
 
+def write_combo_outputs(
+    run_dir: Path,
+    summary: dict,
+    exits: list[dict],
+    lines: list[dict],
+    bottlenecks: list[dict],
+) -> None:
+    write_csv(
+        run_dir / "summary_metrics.csv",
+        [summary],
+        [
+            "scenario_mode",
+            "scenario_label",
+            "total_people",
+            "algorithm",
+            "guidance_mode",
+            "guidance_description",
+            "evacuation_time_s",
+            "avg_travel_time_s",
+            "queueing_time_person_s",
+            "moderate_congestion_exposure_person_s",
+            "severe_congestion_exposure_person_s",
+            "peak_density_p_per_m2",
+            "peak_congestion_index",
+            "avg_speed_m_per_s",
+            "exit_hhi",
+            "max_exit_share",
+            "active_exit_count",
+            "wall_clock_runtime_s",
+        ],
+    )
+    write_csv(
+        run_dir / "exit_usage.csv",
+        exits,
+        ["scenario_mode", "scenario_label", "algorithm", "guidance_mode", "exit_name", "people", "share"],
+    )
+    write_csv(
+        run_dir / "line_metrics.csv",
+        lines,
+        [
+            "scenario_mode",
+            "scenario_label",
+            "total_people",
+            "algorithm",
+            "guidance_mode",
+            "line",
+            "clearance_time_s",
+            "core_clearance_time_s",
+            "transfer_clearance_time_s",
+            "queueing_time_person_s",
+            "moderate_congestion_exposure_person_s",
+            "severe_congestion_exposure_person_s",
+        ],
+    )
+    write_csv(
+        run_dir / "top_bottlenecks.csv",
+        bottlenecks,
+        [
+            "scenario_mode",
+            "scenario_label",
+            "algorithm",
+            "guidance_mode",
+            "rank",
+            "node",
+            "queue_seconds_person_s",
+            "congestion_seconds_person_s",
+            "peak_people",
+            "peak_density_p_per_m2",
+            "peak_load_ratio",
+            "peak_congestion_index",
+            "congestion_measure_type",
+        ],
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run AdaptiveSingleNextHop mode1/mode4 weight-profile comparison without charts."
@@ -371,96 +445,19 @@ def main() -> None:
         default="2",
     )
 
-    run_dir = ensure_run_dir()
-    print()
-    print(f"输出目录: {run_dir}")
-
-    summary_rows = []
-    all_exit_rows = []
-    all_line_rows = []
-    all_bottleneck_rows = []
-
+    written_dirs = []
     for scenario in selected_scenarios(scenario_choice):
         for profile in selected_profiles(profile_choice):
             summary, exits, lines, bottlenecks = run_once(scenario, profile)
-            summary_rows.append(summary)
-            all_exit_rows.extend(exits)
-            all_line_rows.extend(lines)
-            all_bottleneck_rows.extend(bottlenecks)
-
-    write_csv(
-        run_dir / "summary_metrics.csv",
-        summary_rows,
-        [
-            "scenario_mode",
-            "scenario_label",
-            "total_people",
-            "algorithm",
-            "guidance_mode",
-            "guidance_description",
-            "evacuation_time_s",
-            "avg_travel_time_s",
-            "queueing_time_person_s",
-            "moderate_congestion_exposure_person_s",
-            "severe_congestion_exposure_person_s",
-            "peak_density_p_per_m2",
-            "peak_congestion_index",
-            "avg_speed_m_per_s",
-            "exit_hhi",
-            "max_exit_share",
-            "active_exit_count",
-            "wall_clock_runtime_s",
-        ],
-    )
-    write_csv(
-        run_dir / "exit_usage.csv",
-        all_exit_rows,
-        ["scenario_mode", "scenario_label", "algorithm", "guidance_mode", "exit_name", "people", "share"],
-    )
-    write_csv(
-        run_dir / "line_metrics.csv",
-        all_line_rows,
-        [
-            "scenario_mode",
-            "scenario_label",
-            "total_people",
-            "algorithm",
-            "guidance_mode",
-            "line",
-            "clearance_time_s",
-            "core_clearance_time_s",
-            "transfer_clearance_time_s",
-            "queueing_time_person_s",
-            "moderate_congestion_exposure_person_s",
-            "severe_congestion_exposure_person_s",
-        ],
-    )
-    write_csv(
-        run_dir / "top_bottlenecks.csv",
-        all_bottleneck_rows,
-        [
-            "scenario_mode",
-            "scenario_label",
-            "algorithm",
-            "guidance_mode",
-            "rank",
-            "node",
-            "queue_seconds_person_s",
-            "congestion_seconds_person_s",
-            "peak_people",
-            "peak_density_p_per_m2",
-            "peak_load_ratio",
-            "peak_congestion_index",
-            "congestion_measure_type",
-        ],
-    )
+            run_dir = combo_output_dir(scenario, profile)
+            write_combo_outputs(run_dir, summary, exits, lines, bottlenecks)
+            written_dirs.append(run_dir)
+            print(f"已保存: {run_dir}")
 
     print()
-    print("已输出:")
-    print(f"  {run_dir / 'summary_metrics.csv'}")
-    print(f"  {run_dir / 'exit_usage.csv'}")
-    print(f"  {run_dir / 'line_metrics.csv'}")
-    print(f"  {run_dir / 'top_bottlenecks.csv'}")
+    print("已输出目录:")
+    for run_dir in written_dirs:
+        print(f"  {run_dir}")
 
 
 if __name__ == "__main__":

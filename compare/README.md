@@ -27,10 +27,22 @@ python main.py
 - `line_metrics.csv`: 各线路清空、排队、拥堵指标。
 - `top_bottlenecks.csv`: 主要排队/拥堵瓶颈节点。
 
-结果文件会保存在：
+保存规则：
+
+- 不同场景或不同权重模式会保存到不同目录，不会互相覆盖。
+- 只有再次运行相同“场景 + 权重模式”时，才会覆盖该组合目录里的 4 个 CSV。
+
+目录格式：
 
 ```text
-compare/outputs/运行时间/
+compare/outputs/场景/权重模式/
+```
+
+示例：
+
+```text
+compare/outputs/mode1_regular_emergency/Balanced/
+compare/outputs/mode4_bidirectional_full_train/SafetyOriented/
 ```
 
 也可以直接命令行指定：
