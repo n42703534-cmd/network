@@ -70,7 +70,7 @@ def add_selection_scores(wide_df: pd.DataFrame) -> pd.DataFrame:
     df = wide_df.copy()
 
     def diff(metric: str, baseline: str) -> pd.Series:
-        return df[f"{metric}_OurSinglePath"].astype(float) - df[f"{metric}_{baseline}"].astype(float)
+        return df[f"{metric}_AdaptiveSingleNextHop"].astype(float) - df[f"{metric}_{baseline}"].astype(float)
 
     baselines = [
         baseline
@@ -83,10 +83,10 @@ def add_selection_scores(wide_df: pd.DataFrame) -> pd.DataFrame:
         df[f"delta_exposure_vs_{baseline}"] = diff("congestion_exposure_time", baseline)
         df[f"delta_path_vs_{baseline}"] = diff("path_length", baseline)
         df[f"exit_changed_vs_{baseline}"] = (
-            df["target_exit_OurSinglePath"].astype(str) != df[f"target_exit_{baseline}"].astype(str)
+            df["target_exit_AdaptiveSingleNextHop"].astype(str) != df[f"target_exit_{baseline}"].astype(str)
         )
         df[f"path_changed_vs_{baseline}"] = (
-            df["path_OurSinglePath"].astype(str) != df[f"path_{baseline}"].astype(str)
+            df["path_AdaptiveSingleNextHop"].astype(str) != df[f"path_{baseline}"].astype(str)
         )
 
     score = pd.Series(0.0, index=df.index)

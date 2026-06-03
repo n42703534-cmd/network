@@ -66,13 +66,13 @@ import single_path_routing as spr  # noqa: E402
 METHODS = [
     ("ACO", spr.ANT_COLONY_METHOD),
     ("PaperImprovedAStar", spr.PAPER_SINGLE_PATH_METHOD),
-    ("OurSinglePath", spr.OUR_SINGLE_PATH_METHOD),
+    ("AdaptiveSingleNextHop", spr.OUR_SINGLE_PATH_METHOD),
 ]
 
 METHOD_COLORS = {
     "ACO": "#4E79A7",
     "PaperImprovedAStar": "#59A14F",
-    "OurSinglePath": "#E15759",
+    "AdaptiveSingleNextHop": "#E15759",
 }
 
 STATION_BASE_LOADS = {
@@ -247,14 +247,14 @@ def build_report(rows):
 
     aco_2x = next(row for row in rows if row["method_label"] == "ACO" and abs(row["demand_multiplier"] - 2.0) <= 1e-9)
     paper_2x = next(row for row in rows if row["method_label"] == "PaperImprovedAStar" and abs(row["demand_multiplier"] - 2.0) <= 1e-9)
-    ours_2x = next(row for row in rows if row["method_label"] == "OurSinglePath" and abs(row["demand_multiplier"] - 2.0) <= 1e-9)
+    ours_2x = next(row for row in rows if row["method_label"] == "AdaptiveSingleNextHop" and abs(row["demand_multiplier"] - 2.0) <= 1e-9)
 
     lines.extend([
         "",
         "## 高负荷结论",
         "",
-        f"- `OurSinglePath` 相对 `ACO` 在 `2.0x` 下：疏散时间 `{ours_2x['evacuation_time_s'] - aco_2x['evacuation_time_s']:+.2f}s`，排队 `{ours_2x['queueing_time_person_s'] - aco_2x['queueing_time_person_s']:+.2f}` 人·秒，中度拥挤 `{ours_2x['moderate_congestion_exposure_time_person_s'] - aco_2x['moderate_congestion_exposure_time_person_s']:+.2f}` 人·秒，重度拥挤 `{ours_2x['severe_congestion_exposure_time_person_s'] - aco_2x['severe_congestion_exposure_time_person_s']:+.2f}` 人·秒。",
-        f"- `OurSinglePath` 相对 `PaperImprovedAStar` 在 `2.0x` 下：疏散时间 `{ours_2x['evacuation_time_s'] - paper_2x['evacuation_time_s']:+.2f}s`，排队 `{ours_2x['queueing_time_person_s'] - paper_2x['queueing_time_person_s']:+.2f}` 人·秒，中度拥挤 `{ours_2x['moderate_congestion_exposure_time_person_s'] - paper_2x['moderate_congestion_exposure_time_person_s']:+.2f}` 人·秒，重度拥挤 `{ours_2x['severe_congestion_exposure_time_person_s'] - paper_2x['severe_congestion_exposure_time_person_s']:+.2f}` 人·秒。",
+        f"- `AdaptiveSingleNextHop` 相对 `ACO` 在 `2.0x` 下：疏散时间 `{ours_2x['evacuation_time_s'] - aco_2x['evacuation_time_s']:+.2f}s`，排队 `{ours_2x['queueing_time_person_s'] - aco_2x['queueing_time_person_s']:+.2f}` 人·秒，中度拥挤 `{ours_2x['moderate_congestion_exposure_time_person_s'] - aco_2x['moderate_congestion_exposure_time_person_s']:+.2f}` 人·秒，重度拥挤 `{ours_2x['severe_congestion_exposure_time_person_s'] - aco_2x['severe_congestion_exposure_time_person_s']:+.2f}` 人·秒。",
+        f"- `AdaptiveSingleNextHop` 相对 `PaperImprovedAStar` 在 `2.0x` 下：疏散时间 `{ours_2x['evacuation_time_s'] - paper_2x['evacuation_time_s']:+.2f}s`，排队 `{ours_2x['queueing_time_person_s'] - paper_2x['queueing_time_person_s']:+.2f}` 人·秒，中度拥挤 `{ours_2x['moderate_congestion_exposure_time_person_s'] - paper_2x['moderate_congestion_exposure_time_person_s']:+.2f}` 人·秒，重度拥挤 `{ours_2x['severe_congestion_exposure_time_person_s'] - paper_2x['severe_congestion_exposure_time_person_s']:+.2f}` 人·秒。",
         "",
         "## 论文口径建议",
         "",

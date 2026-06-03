@@ -1,0 +1,2 @@
+﻿scenario_mode,scenario_label,capacity_factor,total_people,method,time,avg_travel_time,avg_speed,queueing_time,congestion_exposure_time,severe_congestion_exposure_time,edge_congestion_exposure_time,edge_severe_congestion_exposure_time,peak_congestion_index,wall_clock_runtime_s
+4,mode4_bidirectional_full_train_calibrated_0.55,0.55,17905,AdaptiveSingleNextHop,1238.0,112.54176535583026,0.9729203352718075,2000205.5,2324299.0,1345992.5,0.0,0.0,11.48958568313407,2855.0015060000587

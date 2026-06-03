@@ -4,7 +4,84 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="43025e61-fcc2-40ae-91ac-c5f7666867f3" name="更改" comment="" />
+    <list default="true" id="43025e61-fcc2-40ae-91ac-c5f7666867f3" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_initial_topology.png" beforeDir="false" afterPath="$PROJECT_DIR$/01_initial_topology.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_system_evacuation_curve.csv" beforeDir="false" afterPath="$PROJECT_DIR$/01_system_evacuation_curve.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01_system_evacuation_curve.png" beforeDir="false" afterPath="$PROJECT_DIR$/01_system_evacuation_curve.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/01b_system_line_remaining_curves.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/01b_system_line_remaining_curves.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/02_System_Macro_Metrics_Comparison.png" beforeDir="false" afterPath="$PROJECT_DIR$/02_System_Macro_Metrics_Comparison.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/02_system_method_summary.csv" beforeDir="false" afterPath="$PROJECT_DIR$/02_system_method_summary.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/02b_System_Runtime_Comparison.png" beforeDir="false" afterPath="$PROJECT_DIR$/02b_System_Runtime_Comparison.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/02c_system_key_node_occupancy.csv" beforeDir="false" afterPath="$PROJECT_DIR$/02c_system_key_node_occupancy.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/02d_System_Moderate_Congestion_Comparison.png" beforeDir="false" afterPath="$PROJECT_DIR$/02d_System_Moderate_Congestion_Comparison.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/03_System_Improvement_Rates.png" beforeDir="false" afterPath="$PROJECT_DIR$/03_System_Improvement_Rates.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/03_system_line_summary.csv" beforeDir="false" afterPath="$PROJECT_DIR$/03_system_line_summary.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/04_system_snapshot_comparison_T200s.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/04_system_snapshot_comparison_T30s.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/04_system_snapshot_comparison_T90s.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/05_System_Line_Core_Metrics.png" beforeDir="false" afterPath="$PROJECT_DIR$/05_System_Line_Core_Metrics.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/06_Exit_Destinations_aco.png" beforeDir="false" afterPath="$PROJECT_DIR$/06_Exit_Destinations_aco.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/06_Exit_Destinations_improvedastar.png" beforeDir="false" afterPath="$PROJECT_DIR$/06_Exit_Destinations_improvedastar.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/06_Exit_Destinations_our_single_path.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/07_System_Link_Speed_3Way_Dynamics.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/08_System_Node_Queue_3Way_Dynamics.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/1.pptx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/10_route_event_log_three_methods.csv" beforeDir="false" afterPath="$PROJECT_DIR$/10_route_event_log_three_methods.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/11_route_change_summary_by_line.csv" beforeDir="false" afterPath="$PROJECT_DIR$/11_route_change_summary_by_line.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/12_bottlenecks_aco.csv" beforeDir="false" afterPath="$PROJECT_DIR$/12_bottlenecks_aco.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/13_bottlenecks_improved_astar.csv" beforeDir="false" afterPath="$PROJECT_DIR$/13_bottlenecks_improved_astar.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/14_bottlenecks_our_single_path.csv" beforeDir="false" afterPath="$PROJECT_DIR$/14_bottlenecks_our_single_path.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/15_divergence_timeline_three_methods.png" beforeDir="false" afterPath="$PROJECT_DIR$/15_divergence_timeline_three_methods.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/16_Profile_to_Exit_Distribution.csv" beforeDir="false" afterPath="$PROJECT_DIR$/16_Profile_to_Exit_Distribution.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/17_node_inflow_cap_stats.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/201_scenario1_pathfinder_method_summary.csv" beforeDir="false" afterPath="$PROJECT_DIR$/201_scenario1_pathfinder_method_summary.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/202_scenario1_pathfinder_line_clearance.csv" beforeDir="false" afterPath="$PROJECT_DIR$/202_scenario1_pathfinder_line_clearance.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/203_scenario1_pathfinder_exit_summary.csv" beforeDir="false" afterPath="$PROJECT_DIR$/203_scenario1_pathfinder_exit_summary.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/203_scenario1_pathfinder_exit_summary__updated.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/203b_scenario1_pathfinder_exit_by_source_group.csv" beforeDir="false" afterPath="$PROJECT_DIR$/203b_scenario1_pathfinder_exit_by_source_group.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/203b_scenario1_pathfinder_exit_by_source_group__updated.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/203c_scenario1_pathfinder_spatial_bottlenecks.csv" beforeDir="false" afterPath="$PROJECT_DIR$/203c_scenario1_pathfinder_spatial_bottlenecks.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/203c_scenario1_pathfinder_spatial_bottlenecks__updated.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/204_scenario1_pathfinder_reroute_summary.csv" beforeDir="false" afterPath="$PROJECT_DIR$/204_scenario1_pathfinder_reroute_summary.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/204_scenario1_pathfinder_reroute_summary__updated.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/205_scenario1_pathfinder_ablation_summary.csv" beforeDir="false" afterPath="$PROJECT_DIR$/205_scenario1_pathfinder_ablation_summary.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/206_scenario1_pathfinder_mechanism_detail.csv" beforeDir="false" afterPath="$PROJECT_DIR$/206_scenario1_pathfinder_mechanism_detail.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/207_scenario1_pathfinder_macro_metrics.svg" beforeDir="false" afterPath="$PROJECT_DIR$/207_scenario1_pathfinder_macro_metrics.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/208_scenario1_pathfinder_line_clearance.svg" beforeDir="false" afterPath="$PROJECT_DIR$/208_scenario1_pathfinder_line_clearance.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/209_scenario1_pathfinder_reroute_summary.svg" beforeDir="false" afterPath="$PROJECT_DIR$/209_scenario1_pathfinder_reroute_summary.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/210_scenario1_pathfinder_ablation.svg" beforeDir="false" afterPath="$PROJECT_DIR$/210_scenario1_pathfinder_ablation.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/211_scenario1_pathfinder_mechanism.svg" beforeDir="false" afterPath="$PROJECT_DIR$/211_scenario1_pathfinder_mechanism.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/212_scenario1_pathfinder_validation_report.md" beforeDir="false" afterPath="$PROJECT_DIR$/212_scenario1_pathfinder_validation_report.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/216_robustness_raw_samples.csv" beforeDir="false" afterPath="$PROJECT_DIR$/216_robustness_raw_samples.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/217_robustness_summary.csv" beforeDir="false" afterPath="$PROJECT_DIR$/217_robustness_summary.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/218_robustness_significance_tests.csv" beforeDir="false" afterPath="$PROJECT_DIR$/218_robustness_significance_tests.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/219_robustness_boxplots.png" beforeDir="false" afterPath="$PROJECT_DIR$/219_robustness_boxplots.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/220_robustness_report.md" beforeDir="false" afterPath="$PROJECT_DIR$/220_robustness_report.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/321_l2_detailed_exit_distribution_our_single_path.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/322_ppt_文字说明稿.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/322_system_exit_by_source_node_our_single_path.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithm_layer_snapshot_eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm_layer_snapshot_eval.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/compare_planning_methods_like_bjut.py" beforeDir="false" afterPath="$PROJECT_DIR$/compare_planning_methods_like_bjut.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/demand_sensitivity_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/demand_sensitivity_analysis.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/evacuation_curve_comparison.py" beforeDir="false" afterPath="$PROJECT_DIR$/evacuation_curve_comparison.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/generate_three_line_report.py" beforeDir="false" afterPath="$PROJECT_DIR$/generate_three_line_report.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/l2_case_study.py" beforeDir="false" afterPath="$PROJECT_DIR$/l2_case_study.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/l2_complete_study.py" beforeDir="false" afterPath="$PROJECT_DIR$/l2_complete_study.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/l7_obstacle_study.py" beforeDir="false" afterPath="$PROJECT_DIR$/l7_obstacle_study.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/l7_waiting_zone_algorithm_compare.py" beforeDir="false" afterPath="$PROJECT_DIR$/l7_waiting_zone_algorithm_compare.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lines_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/lines_config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/quick_three_method_metrics.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/robustness_significance_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/robustness_significance_analysis.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scenario1_pathfinder_validation.py" beforeDir="false" afterPath="$PROJECT_DIR$/scenario1_pathfinder_validation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/select_failure_cases.py" beforeDir="false" afterPath="$PROJECT_DIR$/select_failure_cases.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/select_single_path_cases.py" beforeDir="false" afterPath="$PROJECT_DIR$/select_single_path_cases.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/single_path_routing.py" beforeDir="false" afterPath="$PROJECT_DIR$/single_path_routing.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/split_guidance.py" beforeDir="false" afterPath="$PROJECT_DIR$/split_guidance.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/鲁棒性.py" beforeDir="false" afterPath="$PROJECT_DIR$/鲁棒性.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -32,6 +109,7 @@
   "keyToString": {
     "Python.1.executor": "Run",
     "Python.2.executor": "Run",
+    "Python.__tmp_check_evac_time.executor": "Run",
     "Python.algorithm_layer_snapshot_eval.executor": "Run",
     "Python.calc_platform_dists.executor": "Run",
     "Python.evacuation.executor": "Run",
@@ -39,16 +117,18 @@
     "Python.excecise.executor": "Run",
     "Python.l7_waiting_zone_algorithm_compare.executor": "Run",
     "Python.lines_config.executor": "Run",
+    "Python.main.executor": "Run",
     "Python.network.executor": "Run",
     "Python.practice.executor": "Run",
     "Python.quick_three_method_metrics.executor": "Run",
     "Python.robustness_significance_analysis.executor": "Run",
     "Python.scenario1_pathfinder_validation.executor": "Run",
     "Python.test.executor": "Run",
+    "Python.tune_weights.executor": "Run",
     "Python.鲁棒性.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "preferences.language.and.region"
+    "git-widget-placeholder": "main",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
 }]]></component>
   <component name="SharedIndexes">

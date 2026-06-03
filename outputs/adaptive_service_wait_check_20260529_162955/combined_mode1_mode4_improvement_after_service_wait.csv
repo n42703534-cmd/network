@@ -1,0 +1,5 @@
+﻿"scenario_mode","baseline","time_delta","time_improvement_pct","queueing_time_delta","queueing_time_improvement_pct","moderate_congestion_exposure_time_delta","moderate_congestion_exposure_time_improvement_pct","severe_congestion_exposure_time_delta","severe_congestion_exposure_time_improvement_pct","peak_congestion_index_delta","peak_congestion_index_improvement_pct"
+"1","ImprovedAStar","0","0","-9956","19.42","-9355","64.82","0","","0","0"
+"1","ACO","-139","30.32","-12097","22.65","-5073","49.98","0","","0","0"
+"4","ImprovedAStar","-54.5","6.15","-616894.5","31.46","-491260.5","24.58","-436284","36.49","-1.964","19.84"
+"4","ACO","-1429.5","63.21","-4014786.5","74.92","-4103471.5","73.13","-4275213","84.92","-33.431","80.82"

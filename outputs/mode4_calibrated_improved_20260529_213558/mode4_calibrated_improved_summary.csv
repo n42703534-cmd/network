@@ -1,0 +1,3 @@
+﻿capacity_factor,total_people,method,time,queueing_time,congestion_exposure_time,severe_congestion_exposure_time,peak_congestion_index,wall_clock_runtime_s
+0.65,17905,ImprovedAStar,1113.0,2420291.5,2680144.0,1524931.5,12.802275960170697,612.5711277001537
+0.55,17905,ImprovedAStar,1274.0,2735988.5,3061978.0,1742654.0,16.345532135005815,850.4084237001371

@@ -1,0 +1,11 @@
+﻿scenario_mode,scenario_label,line,clearance_time,core_clearance_time,transfer_clearance_time,moderate_congestion_exposure_time,severe_congestion_exposure_time
+1,mode1_regular_emergency,L7,321.0,144.0,321.0,0.0,0.0
+1,mode1_regular_emergency,L2,294.5,172.5,294.5,3836.0,0.0
+1,mode1_regular_emergency,L16,293.5,80.5,293.5,0.0,0.0
+1,mode1_regular_emergency,L18,268.0,212.5,268.0,0.0,0.0
+1,mode1_regular_emergency,Maglev,321.0,,,0.0,0.0
+4,mode4_bidirectional_full_train,L7,694.0,694.0,498.5,581409.5,363677.5
+4,mode4_bidirectional_full_train,L2,811.0,811.0,669.0,300680.0,64393.0
+4,mode4_bidirectional_full_train,L16,572.0,327.0,572.0,61932.0,27689.0
+4,mode4_bidirectional_full_train,L18,844.5,844.5,267.5,289862.5,86937.0
+4,mode4_bidirectional_full_train,Maglev,491.0,491.0,,84521.5,52757.0

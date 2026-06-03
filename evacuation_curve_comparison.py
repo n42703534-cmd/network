@@ -23,11 +23,11 @@ OUTPUT_FILES = {
     "merged_smooth_csv": ROOT / "316_evacuation_curve_comparison_data_smooth.csv",
 }
 
-METHOD_ORDER = ["ACO", "ImprovedAStar", "OurSinglePath"]
+METHOD_ORDER = ["ACO", "ImprovedAStar", "AdaptiveSingleNextHop"]
 METHOD_COLORS = {
     "ACO": "#E63946",
     "ImprovedAStar": "#F4A261",
-    "OurSinglePath": "#457B9D",
+    "AdaptiveSingleNextHop": "#457B9D",
     "Pathfinder": "#2A9D8F",
 }
 
@@ -226,7 +226,7 @@ def main():
     for method, output_key in [
         ("ACO", "aco_single"),
         ("ImprovedAStar", "paper_single"),
-        ("OurSinglePath", "our_single"),
+        ("AdaptiveSingleNextHop", "our_single"),
     ]:
         method_df = python_df[python_df["method"] == method].copy()
         _plot_single_curve(method_df, method, OUTPUT_FILES[output_key])
@@ -234,22 +234,22 @@ def main():
         smooth_key = f"{output_key}_smooth"
         _plot_single_curve_smooth(method_smooth_df, method, OUTPUT_FILES[smooth_key])
 
-    our_df = python_df[python_df["method"] == "OurSinglePath"].copy()
-    our_smooth_df = python_smooth_df[python_smooth_df["method"] == "OurSinglePath"].copy()
+    our_df = python_df[python_df["method"] == "AdaptiveSingleNextHop"].copy()
+    our_smooth_df = python_smooth_df[python_smooth_df["method"] == "AdaptiveSingleNextHop"].copy()
     _plot_dual_curve(
         our_df,
-        "OurSinglePath",
+        "AdaptiveSingleNextHop",
         pathfinder_df,
         "Pathfinder",
-        "OurSinglePath 与 Pathfinder 疏散曲线对比",
+        "AdaptiveSingleNextHop 与 Pathfinder 疏散曲线对比",
         OUTPUT_FILES["our_vs_pathfinder"],
     )
     _plot_dual_curve_smooth(
         our_smooth_df,
-        "OurSinglePath",
+        "AdaptiveSingleNextHop",
         pathfinder_smooth_df,
         "Pathfinder",
-        "OurSinglePath 与 Pathfinder 疏散曲线对比（平滑展示版）",
+        "AdaptiveSingleNextHop 与 Pathfinder 疏散曲线对比（平滑展示版）",
         OUTPUT_FILES["our_vs_pathfinder_smooth"],
     )
 

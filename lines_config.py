@@ -193,13 +193,8 @@ NODES_DATA = {
         "VN_L18_Exit13_Entrance": ["virtual", 6.0, 60, (974.9, -36432.4)],
     },
 
+    # Exit17 中间节点已删除，改为直连 (类似 Exit12)
     "L18_EXIT_VERTICALS": {
-        "Stair_L18_Exit12": ["stair", 1.7, "up", (538.6, -17435.5)],
-        "Escalator_L18_Exit12_up1": ["escalator", 1.03, "up", (195.7, -17106.0)],
-        "Escalator_L18_Exit12_up2": ["escalator", 1.03, "up", (235.3, -17279.8)],
-        "Stair_L18_Exit17": ["stair", 1.7, "up", (-6886.3, -28428.0)],
-        "Escalator_L18_Exit17_up1": ["escalator", 1.03, "up", (-7189.4, -28702.7)],
-        "Escalator_L18_Exit17_up2": ["escalator", 1.03, "up", (-7023.8, -28669.8)],
     },
 
     "Maglev_EXIT_VERTICALS": {
@@ -222,14 +217,14 @@ NODES_DATA = {
         "Exit_L2_2": {"pos": (-2385.1, 2368.3), "width": 7.54},
         "Exit_L2_6": {"pos": (5447.8, 2474.7), "width": 5.2},
         "Exit_L2_4": {"pos": (-455.5, -1469.2), "width": 7.6},
-        "Exit_L2_3": {"pos": (2904.3, -1231.7), "width": 4.2},
+        "Exit_L2_3": {"pos": (2970.3, -1597.1), "width": 4.2},
 
-        "Exit_L16_10": {"pos": (6512.2, -8747.0), "width": 8.3},
-        "Exit_L16_11": {"pos": (5178.2, -13258.1), "width": 34.6},
+        "Exit_L16_10": {"pos": (6944.0, -12905.0), "width": 5.05},
+        "Exit_L16_11": {"pos": (3560.8, -12884.0), "width": 5.05},
 
-        "Exit_L18_12": {"pos": (-3182.7, -19800.0), "width": 7.0},
+        "Exit_L18_12": {"pos": (59.4, -17433.6), "width": 6.0},
         "Exit_L18_13": {"pos": (2964.2, -35864.0), "width": 6.0},
-        "Exit_L18_17": {"pos": (-4172.4, -28000.0), "width": 6.5},
+        "Exit_L18_17": {"pos": (-6975.3, -28852.0), "width": 5.5},
 
         # 这里的 pos 坐标只为画图服务，绝对不影响你严谨的疏散时间计算！
         "Exit_Maglev_18": {"pos": (3300.0, -2800.0), "width": 10},
@@ -499,21 +494,11 @@ L18_VERTICAL_TO_GATE = [(v, g, None, None) for v in _l18_verts for g in _l18_gat
 L18_GATE_TO_EXIT_ENTRANCE = [(g, e, None, None) for g in _l18_gates for e in _l18_exits_entrances]
 
 L18_EXIT_INTERNAL_EDGES = [
-    # 12号口内部拓扑
-    ("VN_L18_Exit12_Entrance", "Stair_L18_Exit12", None, 7.0, "exit_channel"),
-    ("VN_L18_Exit12_Entrance", "Escalator_L18_Exit12_up1", None, 7.0, "exit_channel"),
-    ("VN_L18_Exit12_Entrance", "Escalator_L18_Exit12_up2", None, 7.0, "exit_channel"),
-    ("Stair_L18_Exit12", "Exit_L18_12", 22.0, 1.7, "exit_out"),
-    ("Escalator_L18_Exit12_up1", "Exit_L18_12", 22.0, 1.0, "exit_out"),
-    ("Escalator_L18_Exit12_up2", "Exit_L18_12", 22.0, 1.0, "exit_out"),
+    # 12号口 (直连, 无中间楼梯/扶梯节点)
+    ("VN_L18_Exit12_Entrance", "Exit_L18_12", None, 7.0, "exit_channel"),
 
-    # 17号口内部拓扑
-    ("VN_L18_Exit17_Entrance", "Stair_L18_Exit17", None, 6.5, "exit_channel"),
-    ("VN_L18_Exit17_Entrance", "Escalator_L18_Exit17_up1", None, 6.5, "exit_channel"),
-    ("VN_L18_Exit17_Entrance", "Escalator_L18_Exit17_up2", None, 6.5, "exit_channel"),
-    ("Stair_L18_Exit17", "Exit_L18_17", 22.0, 1.7, "exit_out"),
-    ("Escalator_L18_Exit17_up1", "Exit_L18_17", 22.0, 1.0, "exit_out"),
-    ("Escalator_L18_Exit17_up2", "Exit_L18_17", 22.0, 1.0, "exit_out"),
+    # 17号口 (直连, 无中间楼梯/扶梯节点)
+    ("VN_L18_Exit17_Entrance", "Exit_L18_17", None, 6.5, "exit_channel"),
 
     # 13号口内部拓扑 (纯长通道)
     ("VN_L18_Exit13_Entrance", "Exit_L18_13", None, 6.0, "exit_channel"),
@@ -945,7 +930,7 @@ L2_PLATFORM_WAITING_ZONE_CONFIG = {
 # L16 有两个不互通的独立岛台区域，因此先按“岛台 A 6 区 + 岛台 B 6 区”建骨架。
 # A_* 对应 train_indices=[1]，B_* 对应 train_indices=[2]。
 L16_PLATFORM_WAITING_ZONE_CONFIG = {
-    "A_C1": {"train_indices": [1], "car_indices": [1], "area": 339, "pos":(-5785.912,-9638.089)},
+    "A_C1": {"train_indices": [1], "car_indices": [1], "area": 339, "pos":(-5485.912,-9638.089)},
     "A_C2": {"train_indices": [1], "car_indices": [2], "area": 337, "pos":(-5455.965,-9638.841)},
     "A_C3": {"train_indices": [1], "car_indices": [3], "area": 347, "pos":(-5436.252,-9638.239)},
     "A_C4": {"train_indices": [1], "car_indices": [4], "area": 342, "pos":(-5411.721,-9637.788)},

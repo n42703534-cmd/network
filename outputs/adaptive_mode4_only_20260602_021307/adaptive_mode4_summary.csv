@@ -1,0 +1,2 @@
+﻿scenario_mode,scenario_label,total_people,method,time,queueing_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,peak_congestion_index,avg_speed,avg_travel_time,wall_clock_runtime_s
+4,mode4_bidirectional_full_train,17905,AdaptiveSingleNextHop,844.5,1163206.0,1318405.5,595453.5,6.947890818858561,0.9556271438392134,109.44367963638572,3777.1773221001495

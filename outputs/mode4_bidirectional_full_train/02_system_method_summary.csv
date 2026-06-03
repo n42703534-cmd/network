@@ -1,0 +1,4 @@
+﻿scenario_mode,scenario_label,total_people,method,queueing_time,congestion_exposure_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,time,avg_speed,wall_clock_runtime_s
+4,Mode 4 - Bidirectional full train,17905,ACO,5358992.0,5683161.0,5683161.0,5216003.0,2261.5,0.9980061986866102,33.53084250004031
+4,Mode 4 - Bidirectional full train,17905,ImprovedAStar,1361677.5,1602490.0,1602490.0,1050220.5,853.5,1.0277453931857685,617.445945699932
+4,Mode 4 - Bidirectional full train,17905,AdaptiveSingleNextHop,1143993.5,1397740.5,1397740.5,862353.0,979.5,1.015401988890259,1195.5729349001776

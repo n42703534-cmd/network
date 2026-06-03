@@ -1,0 +1,16 @@
+﻿scenario_mode,scenario_label,total_people,method,line,clearance_time,core_clearance_time,transfer_clearance_time,moderate_congestion_exposure_time,severe_congestion_exposure_time
+1,mode1_regular_emergency,2187,SUE_LogitEquilibrium,L7,398.0,110.5,398.0,0.0,0.0
+1,mode1_regular_emergency,2187,SUE_LogitEquilibrium,L2,295.5,108.0,295.5,0.0,0.0
+1,mode1_regular_emergency,2187,SUE_LogitEquilibrium,L16,248.5,97.0,248.5,0.0,0.0
+1,mode1_regular_emergency,2187,SUE_LogitEquilibrium,L18,274.0,225.0,274.0,0.0,0.0
+1,mode1_regular_emergency,2187,SUE_LogitEquilibrium,Maglev,398.0,,,0.0,0.0
+1,mode1_regular_emergency,2187,NSGAII_MultiObjective,L7,411.0,411.0,352.0,0.0,0.0
+1,mode1_regular_emergency,2187,NSGAII_MultiObjective,L2,545.5,545.5,340.0,796.5,0.0
+1,mode1_regular_emergency,2187,NSGAII_MultiObjective,L16,315.0,125.5,315.0,0.0,0.0
+1,mode1_regular_emergency,2187,NSGAII_MultiObjective,L18,389.5,389.5,294.5,0.0,0.0
+1,mode1_regular_emergency,2187,NSGAII_MultiObjective,Maglev,545.5,,,0.0,0.0
+1,mode1_regular_emergency,2187,DynamicSign_FlowEquilibrium,L7,321.0,171.0,321.0,1662.5,0.0
+1,mode1_regular_emergency,2187,DynamicSign_FlowEquilibrium,L2,302.5,152.5,302.5,10719.0,2685.0
+1,mode1_regular_emergency,2187,DynamicSign_FlowEquilibrium,L16,303.0,80.5,303.0,0.0,0.0
+1,mode1_regular_emergency,2187,DynamicSign_FlowEquilibrium,L18,301.0,301.0,268.0,0.0,0.0
+1,mode1_regular_emergency,2187,DynamicSign_FlowEquilibrium,Maglev,321.0,,,0.0,0.0

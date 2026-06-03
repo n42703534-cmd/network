@@ -1,0 +1,3 @@
+﻿scenario_mode,scenario_label,total_people,method,time,avg_travel_time,queueing_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,edge_congestion_exposure_time,edge_severe_congestion_exposure_time,peak_density,peak_congestion_index,avg_speed,wall_clock_runtime_s
+1,mode1_regular_emergency,2187,IACO_GA_2026,516.0,114.73999335122531,28474.0,3819.0,0.0,0.0,0.0,4.164133738601824,4.164133738601824,1.154690814836758,96.65270720003173
+4,mode4_bidirectional_full_train,17905,IACO_GA_2026,897.0,167.74522396848826,873002.5,809260.0,479096.0,0.0,0.0,13.32,13.32,0.9581313421672829,3209.0852220999077

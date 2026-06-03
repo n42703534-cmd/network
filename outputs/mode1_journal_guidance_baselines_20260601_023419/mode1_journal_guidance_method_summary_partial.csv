@@ -1,0 +1,4 @@
+﻿scenario_mode,scenario_label,total_people,method,time,avg_travel_time,queueing_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,peak_density,peak_congestion_index,avg_speed,wall_clock_runtime_s
+1,mode1_regular_emergency,2187,SUE_LogitEquilibrium,398.0,104.08389628317231,21123.0,0.0,0.0,1.8844984802431612,1.8844984802431612,1.1551736731576312,43.14791820012033
+1,mode1_regular_emergency,2187,NSGAII_MultiObjective,545.5,127.24890886835037,24987.5,796.5,0.0,3.4650455927051675,3.4650455927051675,1.1587979741822974,57.72128719999455
+1,mode1_regular_emergency,2187,DynamicSign_FlowEquilibrium,321.0,96.95390923540367,48678.0,12381.5,2685.0,5.531914893617022,5.531914893617022,1.1575644494945183,38.58536299993284

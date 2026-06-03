@@ -17,9 +17,8 @@ REP_CASE_ID = "L2_C1"
 DISRUPTION_NODE = "Escalator_L2_up1"
 
 METHOD_SPECS = [
-    (nw.TRADITIONAL_METHOD, "Traditional", "#D62728", "dashed"),
     (nw.PAPER_SINGLE_PATH_METHOD, "Paper Improved A*", "#F28E2B", "dashdot"),
-    (nw.OUR_SINGLE_PATH_METHOD, "Our Single-Path A*", "#1F77B4", "solid"),
+    (nw.OUR_SINGLE_PATH_METHOD, "Adaptive Single-Next-Hop Guidance", "#1F77B4", "solid"),
 ]
 
 
@@ -88,7 +87,7 @@ def make_route_comparison_figure(G_plot, case_state, case_spec, output_file, tit
     for method, label, color, linestyle in METHOD_SPECS:
         paths[label] = nw.get_best_path_to_exit(case_state, case_spec["origin"], method, shortest_dists)
 
-    fig, axes = plt.subplots(1, 3, figsize=(24, 8))
+    fig, axes = plt.subplots(1, len(METHOD_SPECS), figsize=(8 * len(METHOD_SPECS), 8))
     handles = []
     for ax, (_, label, color, linestyle) in zip(axes, METHOD_SPECS):
         handle = _draw_route_panel(
@@ -108,7 +107,7 @@ def make_route_comparison_figure(G_plot, case_state, case_spec, output_file, tit
         fontweight="bold",
         y=0.98,
     )
-    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False)
+    fig.legend(handles=handles, loc="lower center", ncol=len(METHOD_SPECS), frameon=False)
     plt.tight_layout(rect=[0, 0.06, 1, 0.95])
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -226,19 +225,19 @@ def run_l2_complete_study():
         "",
         "1. L2 benchmark setup",
         f"- Four representative starts: {', '.join(spec['origin'] for spec in L2_CASE_SPECS)}",
-        "- Three methods compared: Traditional, Paper Improved A*, Our Single-Path A*",
+        "- Two methods compared: Paper Improved A*, Adaptive Single-Next-Hop Guidance",
         "- Population per case: 100",
         "",
         "2. L2_C1 representative case",
-        f"- Normal best path (Our Single-Path A*): {normal_method.loc['Our Single-Path A*', 'path']}",
-        f"- Normal evacuation time (Our Single-Path A*): {normal_method.loc['Our Single-Path A*', 'evacuation_time']:.1f} s",
+        f"- Normal best path (Adaptive Single-Next-Hop Guidance): {normal_method.loc['Adaptive Single-Next-Hop Guidance', 'path']}",
+        f"- Normal evacuation time (Adaptive Single-Next-Hop Guidance): {normal_method.loc['Adaptive Single-Next-Hop Guidance', 'evacuation_time']:.1f} s",
         f"- Paper Improved A* path: {normal_method.loc['Paper Improved A*', 'path']}",
         f"- Paper Improved A* evacuation time: {normal_method.loc['Paper Improved A*', 'evacuation_time']:.1f} s",
         "",
         "3. Disruption study",
         f"- Blocked facility: {DISRUPTION_NODE}",
-        f"- Disrupted best path (Our Single-Path A*): {disrupted_method.loc['Our Single-Path A*', 'path']}",
-        f"- Disrupted evacuation time (Our Single-Path A*): {disrupted_method.loc['Our Single-Path A*', 'evacuation_time']:.1f} s",
+        f"- Disrupted best path (Adaptive Single-Next-Hop Guidance): {disrupted_method.loc['Adaptive Single-Next-Hop Guidance', 'path']}",
+        f"- Disrupted evacuation time (Adaptive Single-Next-Hop Guidance): {disrupted_method.loc['Adaptive Single-Next-Hop Guidance', 'evacuation_time']:.1f} s",
         f"- Disrupted Paper Improved A* evacuation time: {disrupted_method.loc['Paper Improved A*', 'evacuation_time']:.1f} s",
         "",
         "4. Normal benchmark summary",

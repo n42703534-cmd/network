@@ -1,0 +1,2 @@
+﻿scenario_mode,scenario_label,total_people,scenario,blocked_facility,method,queueing_time,congestion_exposure_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,time,time_delta_vs_normal,queueing_delta_vs_normal,avg_speed,wall_clock_runtime_s
+4,Mode 4 - Bidirectional full train,17905,node_and_incident_edges_blocked,Escalator_L2_up1,AdaptiveSingleNextHop,1199477.0,1422936.0,1422936.0,887992.5,962.5,-17.0,55483.5,1.016968470557607,1248.2132411999628

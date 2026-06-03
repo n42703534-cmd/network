@@ -1,0 +1,4 @@
+﻿scenario_mode,scenario_label,total_people,method,queueing_time,congestion_exposure_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,time,avg_speed,wall_clock_runtime_s
+2,Mode 2 - Upbound full train,10046,ACO,1699159.0,1831412.5,1831412.5,1586617.5,1206.5,1.0112873089431886,23.811621699947864
+2,Mode 2 - Upbound full train,10046,ImprovedAStar,595064.5,693431.5,693431.5,410314.5,647.5,1.0456934637074429,684.651216799859
+2,Mode 2 - Upbound full train,10046,AdaptiveSingleNextHop,513001.5,637580.5,637580.5,383503.0,666.5,1.033762937407289,660.4890521999914

@@ -133,7 +133,7 @@ def score_long_results(long_df: pd.DataFrame) -> dict[str, float]:
     wide.columns = [f"{metric}_{method}" for metric, method in wide.columns]
     wide = wide.reset_index()
 
-    if "evacuation_time_OurSinglePath" not in wide or "evacuation_time_PaperImprovedAStar" not in wide:
+    if "evacuation_time_AdaptiveSingleNextHop" not in wide or "evacuation_time_PaperImprovedAStar" not in wide:
         return {
             "mean_score": 0.0,
             "max_time_delta": 0.0,
@@ -142,17 +142,17 @@ def score_long_results(long_df: pd.DataFrame) -> dict[str, float]:
             "path_change_count": 0.0,
         }
 
-    dt = wide["evacuation_time_OurSinglePath"].astype(float) - wide[
+    dt = wide["evacuation_time_AdaptiveSingleNextHop"].astype(float) - wide[
         "evacuation_time_PaperImprovedAStar"
     ].astype(float)
-    dq = wide["queueing_time_OurSinglePath"].astype(float) - wide[
+    dq = wide["queueing_time_AdaptiveSingleNextHop"].astype(float) - wide[
         "queueing_time_PaperImprovedAStar"
     ].astype(float)
-    de = wide["congestion_exposure_time_OurSinglePath"].astype(float) - wide[
+    de = wide["congestion_exposure_time_AdaptiveSingleNextHop"].astype(float) - wide[
         "congestion_exposure_time_PaperImprovedAStar"
     ].astype(float)
     path_changed = (
-        wide["path_OurSinglePath"].astype(str) != wide["path_PaperImprovedAStar"].astype(str)
+        wide["path_AdaptiveSingleNextHop"].astype(str) != wide["path_PaperImprovedAStar"].astype(str)
     )
     score = dt.abs() + dq.abs() / 80.0 + de.abs() / 80.0 + path_changed.astype(int) * 8.0
     return {
@@ -166,7 +166,7 @@ def score_long_results(long_df: pd.DataFrame) -> dict[str, float]:
 
 def plot_failure_results(long_df: pd.DataFrame, out_file: Path) -> None:
     case_order = list(dict.fromkeys(long_df["case_id"].tolist()))
-    method_order = ["PaperImprovedAStar", "AntColony", "OurSinglePath"]
+    method_order = ["PaperImprovedAStar", "AntColony", "AdaptiveSingleNextHop"]
     pivots = [
         (long_df.pivot(index="case_id", columns="method", values="evacuation_time"), "疏散时间 (s)"),
         (long_df.pivot(index="case_id", columns="method", values="queueing_time"), "排队时间 (person*s)"),

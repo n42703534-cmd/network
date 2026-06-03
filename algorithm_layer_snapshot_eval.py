@@ -9,7 +9,6 @@ import single_path_routing as spr
 
 
 ALGORITHM_METHODS = [
-    network.TRADITIONAL_METHOD,
     network.PAPER_SINGLE_PATH_METHOD,
     network.ANT_COLONY_METHOD,
     network.OUR_SINGLE_PATH_METHOD,
@@ -20,7 +19,7 @@ LINE_START_ZONES = {
     "L7": ["Platform_L7_C1_Wait", "Platform_L7_C3_Wait", "Platform_L7_C5_Wait", "Platform_L7_C6_Wait"],
     "L18": ["Platform_L18_C1_Wait", "Platform_L18_C3_Wait", "Platform_L18_C5_Wait", "Platform_L18_C6_Wait"],
 }
-METHOD_ORDER = ["Traditional", "ImprovedAStar", "ACO", "OurSinglePath"]
+METHOD_ORDER = ["ImprovedAStar", "ACO", "AdaptiveSingleNextHop"]
 
 
 def build_algorithm_cases():
@@ -215,19 +214,18 @@ def build_pairwise_delta(case_df):
     wide.columns = [f"{metric}_{label}" for metric, label in wide.columns]
     wide = wide.reset_index()
 
-    for rival in ["Traditional", "ImprovedAStar", "ACO"]:
-        wide[f"time_gap_{rival}_minus_our"] = wide[f"actual_evacuation_time_{rival}"] - wide["actual_evacuation_time_OurSinglePath"]
-        wide[f"queue_gap_{rival}_minus_our"] = wide[f"actual_queueing_time_{rival}"] - wide["actual_queueing_time_OurSinglePath"]
-        wide[f"exposure_gap_{rival}_minus_our"] = wide[f"actual_congestion_exposure_{rival}"] - wide["actual_congestion_exposure_OurSinglePath"]
+    for rival in ["ImprovedAStar", "ACO"]:
+        wide[f"time_gap_{rival}_minus_our"] = wide[f"actual_evacuation_time_{rival}"] - wide["actual_evacuation_time_AdaptiveSingleNextHop"]
+        wide[f"queue_gap_{rival}_minus_our"] = wide[f"actual_queueing_time_{rival}"] - wide["actual_queueing_time_AdaptiveSingleNextHop"]
+        wide[f"exposure_gap_{rival}_minus_our"] = wide[f"actual_congestion_exposure_{rival}"] - wide["actual_congestion_exposure_AdaptiveSingleNextHop"]
     return wide
 
 
 def plot_summary(case_df, summary_df, line_summary_df, plot_file):
     colors = {
-        "Traditional": "#4E79A7",
         "ImprovedAStar": "#F28E2B",
         "ACO": "#59A14F",
-        "OurSinglePath": "#E15759",
+        "AdaptiveSingleNextHop": "#E15759",
     }
 
     fig, axes = plt.subplots(2, 3, figsize=(16, 9))
@@ -319,9 +317,9 @@ def write_report(case_df, summary_df, line_summary_df, delta_df, report_file):
     method_rows = summary_df.set_index("method_label").loc[METHOD_ORDER].reset_index()
 
     lines = [
-        "# 三条代表线路的单路径算法层对比报告",
+        "# 三条代表线路的自适应引导算法层对比报告",
         "",
-        "本文只比较单路径算法层，不讨论全站引导和分流。每个案例固定 100 人，从选定等待区起步，由算法自行决定目标出口和完整路径，再在同一网络模型中执行仿真，统计规划和运行结果。",
+        "本文只比较自适应引导算法层，不讨论全站引导和分流。每个案例固定 100 人，从选定等待区起步，由算法自行决定目标出口和完整路径，再在同一网络模型中执行仿真，统计规划和运行结果。",
         "",
         "## 1. 实验设计",
         "",
@@ -507,15 +505,14 @@ def write_report(case_df, summary_df, line_summary_df, delta_df, report_file):
     lines.extend(
         [
             "",
-            f"## {5 + len(LINE_START_ZONES)}. OurSinglePath 相对其他算法",
+            f"## {5 + len(LINE_START_ZONES)}. AdaptiveSingleNextHop 相对其他算法",
             "",
-            f"- 相对 `Traditional`：平均时间差 `{format_float(delta_df['time_gap_Traditional_minus_our'].mean())}s`，平均排队差 `{format_float(delta_df['queue_gap_Traditional_minus_our'].mean())}`，平均暴露差 `{format_float(delta_df['exposure_gap_Traditional_minus_our'].mean())}`。",
             f"- 相对 `ImprovedAStar`：平均时间差 `{format_float(delta_df['time_gap_ImprovedAStar_minus_our'].mean())}s`，平均排队差 `{format_float(delta_df['queue_gap_ImprovedAStar_minus_our'].mean())}`，平均暴露差 `{format_float(delta_df['exposure_gap_ImprovedAStar_minus_our'].mean())}`。",
             f"- 相对 `ACO`：平均时间差 `{format_float(delta_df['time_gap_ACO_minus_our'].mean())}s`，平均排队差 `{format_float(delta_df['queue_gap_ACO_minus_our'].mean())}`，平均暴露差 `{format_float(delta_df['exposure_gap_ACO_minus_our'].mean())}`。",
             "",
             f"## {6 + len(LINE_START_ZONES)}. 总结",
             "",
-            "- 这一组实验只验证单路径算法层，因此更适合看“路径选择是否稳、是否选中较优出口与完整路径”，不直接外推到全站协同引导。",
+            "- 这一组实验只验证自适应引导算法层，因此更适合看“路径选择是否稳、是否选中较优出口与完整路径”，不直接外推到全站协同引导。",
             "- 如果后续进入系统层，还需要把这里的单路径结果与全站同时疏散、瓶颈峰值和出口均衡性结合起来看。",
         ]
     )

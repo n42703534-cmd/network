@@ -1,0 +1,7 @@
+17 ok 1.38
+120 IndentationError expected an indented block after 'except' statement on line 120 (network.py, line 120)
+180 ok 0.0
+220 ok 0.0
+400 ok 0.0
+800 SyntaxError '{' was never closed (network.py, line 799)
+1400 IndentationError expected an indented block after 'for' statement on line 1400 (network.py, line 1400)

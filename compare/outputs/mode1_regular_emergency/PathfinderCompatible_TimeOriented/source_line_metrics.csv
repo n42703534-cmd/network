@@ -1,0 +1,6 @@
+﻿scenario_mode,scenario_label,total_people,algorithm,guidance_mode,person_label_line,person_label_clearance_time_s,person_label_core_clearance_time_s,person_label_transfer_clearance_time_s,queueing_time_person_s,moderate_congestion_exposure_person_s,severe_congestion_exposure_person_s
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L2,252.0,172.0,252.0,35388.0,3816.5,0.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L7,321.0,143.5,321.0,8176.5,0.0,0.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L16,251.5,76.0,251.5,393.0,0.0,0.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L18,259.0,171.0,259.0,3426.0,0.0,0.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,Maglev,,,,0.0,0.0,0.0

@@ -1,0 +1,16 @@
+﻿scenario_mode,scenario_label,method,line,clearance_time,congestion_exposure_time
+2,mode2_upbound_full_train,ACO,L7,699.5,449209.5
+2,mode2_upbound_full_train,ACO,L2,1206.5,656583.5
+2,mode2_upbound_full_train,ACO,L16,1149.5,154928.0
+2,mode2_upbound_full_train,ACO,L18,1149.0,478681.5
+2,mode2_upbound_full_train,ACO,Maglev,441.5,92010.0
+2,mode2_upbound_full_train,ImprovedAStar,L7,647.5,212085.5
+2,mode2_upbound_full_train,ImprovedAStar,L2,644.0,193045.5
+2,mode2_upbound_full_train,ImprovedAStar,L16,646.0,46435.5
+2,mode2_upbound_full_train,ImprovedAStar,L18,647.0,202666.5
+2,mode2_upbound_full_train,ImprovedAStar,Maglev,325.5,39198.5
+2,mode2_upbound_full_train,AdaptiveSingleNextHop,L7,666.5,188175.0
+2,mode2_upbound_full_train,AdaptiveSingleNextHop,L2,569.0,181902.5
+2,mode2_upbound_full_train,AdaptiveSingleNextHop,L16,495.0,28584.0
+2,mode2_upbound_full_train,AdaptiveSingleNextHop,L18,570.0,191371.0
+2,mode2_upbound_full_train,AdaptiveSingleNextHop,Maglev,374.5,47548.0

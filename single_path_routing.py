@@ -1,15 +1,16 @@
+import math
 import random
 
 import networkx as nx
 
 
-TRADITIONAL_METHOD = "Traditional"
 PAPER_SINGLE_PATH_METHOD = "PaperImprovedAStar"
-OUR_SINGLE_PATH_METHOD = "OurSinglePath"
+OUR_SINGLE_PATH_METHOD = "AdaptiveSingleNextHop"
 OUR_SPLIT_GUIDANCE_METHOD = "OurSplitGuidance"
-OUR_NO_SOURCE_RELEASE_METHOD = "OurNoSourceRelease"
-OUR_NO_DOWNSTREAM_RELEASE_METHOD = "OurNoDownstreamRelease"
-OUR_NO_EXIT_PRESSURE_METHOD = "OurNoExitPressure"
+OUR_NO_SOURCE_RELEASE_METHOD = "NoUpstreamLoadPenalty"
+OUR_NO_DOWNSTREAM_RELEASE_METHOD = "NoDownstreamLoadPenalty"
+OUR_NO_EXIT_PRESSURE_METHOD = "NoExitPressurePenalty"
+OUR_NO_PREDICTIVE_PENALTIES_METHOD = "NoPredictivePenalties"
 ANT_COLONY_METHOD = "AntColony"
 
 METHOD_ALIASES = {
@@ -17,6 +18,11 @@ METHOD_ALIASES = {
     "Improved": OUR_SPLIT_GUIDANCE_METHOD,
     "ACO": ANT_COLONY_METHOD,
     "AntColonyOptimization": ANT_COLONY_METHOD,
+    "OurSinglePath": OUR_SINGLE_PATH_METHOD,
+    "OurNoSourceRelease": OUR_NO_SOURCE_RELEASE_METHOD,
+    "OurNoDownstreamRelease": OUR_NO_DOWNSTREAM_RELEASE_METHOD,
+    "OurNoExitPressure": OUR_NO_EXIT_PRESSURE_METHOD,
+    "OurNoPredictivePenalties": OUR_NO_PREDICTIVE_PENALTIES_METHOD,
 }
 
 PAPER_FREE_SPEED = 1.427
@@ -25,13 +31,21 @@ PAPER_DENSITY_JAM = 4.0
 PAPER_DENSITY_SLOPE = 0.3549
 PAPER_LENGTH_ALPHA = 0.15
 PAPER_SPEED_BETA = 0.85
-PAPER_HEURISTIC_GAMMA = PAPER_LENGTH_ALPHA
+PAPER_HEURISTIC_GAMMA = 0.10
 PAPER_DENSITY_CUTOFF = 3.0
-OUR_GATE_QUEUE_WEIGHT = 2.4
+PAPER_FACILITY_SPEED_LIMITS = {
+    "flat": PAPER_FREE_SPEED,
+    # Station adaptation of Meng et al.'s improved A*: their cruise-ship case
+    # assumes stair cost equals flat passage cost; metro evacuation needs
+    # facility-specific walking-speed caps for stairs and escalators.
+    "stair": 0.75,
+    "escalator": 0.50,
+}
+OUR_GATE_QUEUE_WEIGHT = 3.5
 OUR_GATE_SOURCE_RELEASE_WEIGHT = 0.18
 OUR_GATE_SERVICE_RATE_WEIGHT = 3.0
-ACO_ANT_COUNT = 24
-ACO_ITERATIONS = 35
+ACO_ANT_COUNT = 20
+ACO_ITERATIONS = 40
 ACO_ALPHA = 1.0
 ACO_BETA = 2.0
 ACO_EVAPORATION = 0.35
@@ -42,7 +56,11 @@ OUR_DENSITY_MODERATE_THRESHOLD = 2.5
 OUR_DENSITY_SEVERE_THRESHOLD = 4.0
 OUR_DENSITY_MODERATE_FACTOR = 0.65
 OUR_DENSITY_SEVERE_SURCHARGE = 2.5
-OUR_GATE_OVERLOAD_FACTOR = 0.35
+OUR_GATE_OVERLOAD_FACTOR = 0.6
+OUR_SERVICE_WAIT_TIME_WEIGHT = 1.1
+SERVICE_QUEUE_HORIZON_SECONDS = 30.0
+SERVICE_MODERATE_LOAD_RATIO = 1.0
+SERVICE_SEVERE_LOAD_RATIO = 2.0
 
 OUR_PREDICTIVE_VARIANTS = {
     OUR_SINGLE_PATH_METHOD,
@@ -50,6 +68,7 @@ OUR_PREDICTIVE_VARIANTS = {
     OUR_NO_SOURCE_RELEASE_METHOD,
     OUR_NO_DOWNSTREAM_RELEASE_METHOD,
     OUR_NO_EXIT_PRESSURE_METHOD,
+    OUR_NO_PREDICTIVE_PENALTIES_METHOD,
 }
 
 
@@ -76,6 +95,10 @@ def uses_ant_colony(method):
     return routing_base_method(method) == ANT_COLONY_METHOD
 
 
+def uses_predictive_guidance_family(method):
+    return normalize_method(method) in OUR_PREDICTIVE_VARIANTS
+
+
 def our_penalty_weights(method):
     method = normalize_method(method)
     weights = {
@@ -89,6 +112,8 @@ def our_penalty_weights(method):
         weights["downstream_release"] = 0.0
     elif method == OUR_NO_EXIT_PRESSURE_METHOD:
         weights["exit_pressure"] = 0.0
+    elif method == OUR_NO_PREDICTIVE_PENALTIES_METHOD:
+        weights = {key: 0.0 for key in weights}
     return weights
 
 
@@ -120,6 +145,56 @@ def node_out_capacity(G, node):
     return max(total, 0.001)
 
 
+def node_reserved_inflow(G, node):
+    if node not in G.nodes:
+        return 0.0
+    return max(float(G.nodes[node].get("_guidance_reserved_inflow", 0.0)), 0.0)
+
+
+def is_capacity_service_node(G, node):
+    if node not in G.nodes:
+        return False
+    node_type = str(G.nodes[node].get("type", "")).lower()
+    return node_type in {"stair", "escalator"} or node_type.startswith("gate") or "gate" in node_type
+
+
+def node_service_capacity(G, node):
+    if node not in G.nodes:
+        return 0.001
+    capacity = float(G.nodes[node].get("capacity", 0.0) or 0.0)
+    if not math.isfinite(capacity) or capacity <= 0:
+        capacity = node_out_capacity(G, node)
+    return max(capacity, 0.001)
+
+
+def spatial_effective_density(G, node, obstacle_area=0.0):
+    if node not in G.nodes:
+        return 0.0
+    area = max(float(G.nodes[node].get("area", 1.0)), 0.1)
+    obstacle_area = min(max(float(obstacle_area), 0.0), max(area - 0.1, 0.0))
+    effective_area = max(area - obstacle_area, 0.1)
+    people_at_node = float(G.nodes[node].get("people", 0.0)) + node_reserved_inflow(G, node)
+    return people_at_node / effective_area
+
+
+def node_congestion_index(G, node, obstacle_area=0.0):
+    if is_capacity_service_node(G, node):
+        people_at_node = float(G.nodes[node].get("people", 0.0)) + node_reserved_inflow(G, node)
+        service_capacity = node_service_capacity(G, node)
+        service_window = service_capacity * SERVICE_QUEUE_HORIZON_SECONDS
+        return people_at_node / max(service_window, 0.001), "capacity_ratio"
+    return spatial_effective_density(G, node, obstacle_area), "density"
+
+
+def edge_runtime_density(G, u, v):
+    if not G.has_edge(u, v):
+        return 0.0
+    density = float(G[u][v].get("runtime_density", 0.0) or 0.0)
+    if not math.isfinite(density):
+        return 0.0
+    return max(density, 0.0)
+
+
 def exit_approach_pressure(G, exit_node):
     if exit_node not in G.nodes:
         return 0.0
@@ -131,9 +206,35 @@ def exit_approach_pressure(G, exit_node):
     approach_people = 0.0
     inbound_capacity = 0.0
     for pred in preds:
-        approach_people += float(G.nodes[pred].get("people", 0.0))
+        approach_people += float(G.nodes[pred].get("people", 0.0)) + node_reserved_inflow(G, pred)
         inbound_capacity += float(G[pred][exit_node].get("capacity", 0.0))
     return approach_people / max(inbound_capacity, 0.001)
+
+
+def approach_pressure(G, pred, exit_node):
+    """Per-predecessor local approach pressure for a single (pred, exit) pair.
+
+    P(pred, exit) = people(pred) / capacity(pred -> exit)
+
+    This is the pre-computed form used by update_dynamic_weights to attach
+    exit-area congestion to edges entering *pred*, so that A* naturally
+    avoids approaches to already-crowded exits.
+    """
+    if pred not in G.nodes or exit_node not in G.nodes:
+        return 0.0
+    if not G.has_edge(pred, exit_node):
+        return 0.0
+    people_at_pred = float(G.nodes[pred].get("people", 0.0)) + node_reserved_inflow(G, pred)
+    edge_capacity = max(float(G[pred][exit_node].get("capacity", 0.0)), 0.001)
+    return people_at_pred / edge_capacity
+
+
+def smoothed_approach_pressure(G, pred, exit_node):
+    """EMA-smoothed per-predecessor approach pressure."""
+    store = G.graph.get("_approach_pressure_smoothed")
+    if store is None:
+        return approach_pressure(G, pred, exit_node)
+    return float(store.get((pred, exit_node), 0.0))
 
 
 def edge_width_proxy(G, u, v):
@@ -166,24 +267,32 @@ def paper_effective_density(G, u, v):
     area = paper_edge_area(G, u, v)
     obstacle_area = min(paper_obstacle_area(G, u, v), max(area - 0.1, 0.0))
     effective_area = max(area - obstacle_area, 0.1)
-    people_at_v = float(G.nodes[v].get("people", 0.0))
-    return people_at_v / effective_area
+    people_at_v = float(G.nodes[v].get("people", 0.0)) + node_reserved_inflow(G, v)
+    return max(people_at_v / effective_area, edge_runtime_density(G, u, v))
 
 
 def our_effective_density(G, u, v):
-    area = max(float(G.nodes[v].get("area", 1.0)), 0.1)
-    obstacle_area = min(paper_obstacle_area(G, u, v), max(area - 0.1, 0.0))
-    effective_area = max(area - obstacle_area, 0.1)
-    people_at_v = float(G.nodes[v].get("people", 0.0))
-    return people_at_v / effective_area
+    node_density = spatial_effective_density(G, v, paper_obstacle_area(G, u, v))
+    return max(node_density, edge_runtime_density(G, u, v))
 
 
 def paper_speed_from_density(density):
     if density <= PAPER_DENSITY_FREE:
         return PAPER_FREE_SPEED
     if density <= PAPER_DENSITY_JAM:
-        return max(PAPER_FREE_SPEED - PAPER_DENSITY_SLOPE * density, 0.1)
-    return 0.1
+        return max(PAPER_FREE_SPEED - PAPER_DENSITY_SLOPE * density, 0.0)
+    return 0.0
+
+
+def paper_facility_speed_limit(G, u, v):
+    edge_type = str(G[u][v].get("edge_type", "")).lower()
+    u_type = str(G.nodes[u].get("type", "")).lower()
+    v_type = str(G.nodes[v].get("type", "")).lower()
+    if "stair" in edge_type or "stair" in u_type or "stair" in v_type:
+        return PAPER_FACILITY_SPEED_LIMITS["stair"]
+    if "escalator" in edge_type or "escalator" in u_type or "escalator" in v_type:
+        return PAPER_FACILITY_SPEED_LIMITS["escalator"]
+    return PAPER_FACILITY_SPEED_LIMITS["flat"]
 
 
 def paper_edge_cost(G, u, v):
@@ -191,8 +300,10 @@ def paper_edge_cost(G, u, v):
     density = paper_effective_density(G, u, v)
     if density > PAPER_DENSITY_CUTOFF:
         return float("inf")
-    walk_speed = paper_speed_from_density(density)
-    return PAPER_LENGTH_ALPHA * length + PAPER_SPEED_BETA * (1.0 / max(walk_speed, 0.1))
+    walk_speed = min(paper_speed_from_density(density), paper_facility_speed_limit(G, u, v))
+    if walk_speed <= 0.0:
+        return float("inf")
+    return PAPER_LENGTH_ALPHA * length + PAPER_SPEED_BETA * (1.0 / walk_speed)
 
 
 def our_edge_cost_components(G, u, v, speed_fn, method=OUR_SINGLE_PATH_METHOD):
@@ -214,18 +325,23 @@ def our_edge_cost_components(G, u, v, speed_fn, method=OUR_SINGLE_PATH_METHOD):
         return zero
 
     node_type = G.nodes[v].get("type", "")
-    people_at_v = float(G.nodes[v].get("people", 0.0))
+    people_at_v = float(G.nodes[v].get("people", 0.0)) + node_reserved_inflow(G, v)
     source_people = float(G.nodes[u].get("people", 0.0))
     edge_capacity = max(float(data.get("capacity", 0.0)), 0.001)
 
-    if "gate" in node_type or "exit" in node_type:
-        mu = float(G.nodes[v].get("capacity", 1.0))
-        queue_ratio = people_at_v / max(mu, 0.001)
+    if is_capacity_service_node(G, v):
+        mu = node_service_capacity(G, v)
+        queue_ratio, _ = node_congestion_index(G, v)
+        queue_delay = people_at_v / max(mu, 0.001)
         overload = max(queue_ratio - 1.0, 0.0)
         components = dict(zero)
-        components["base_cost"] = walk_time_base
+        facility_speed = max(paper_facility_speed_limit(G, u, v), 0.1)
+        components["base_cost"] = length / facility_speed if length > 0 else walk_time_base
         components["gate_queue_penalty"] = (
-            OUR_GATE_QUEUE_WEIGHT * queue_ratio * (1.0 + OUR_GATE_OVERLOAD_FACTOR * overload)
+            OUR_SERVICE_WAIT_TIME_WEIGHT
+            * queue_delay
+            * (1.0 + OUR_GATE_OVERLOAD_FACTOR * overload)
+            + OUR_GATE_QUEUE_WEIGHT * queue_ratio
         )
         components["service_penalty"] = OUR_GATE_SERVICE_RATE_WEIGHT * (1.0 / max(mu, 0.001))
         components["source_release_penalty"] = weights["source_release"] * (source_people / edge_capacity)
@@ -303,12 +419,7 @@ def edge_dynamic_cost(G, u, v, method, speed_fn):
         return paper_edge_cost(G, u, v)
 
     if method == ANT_COLONY_METHOD:
-        density = our_effective_density(G, u, v)
-        safe_speed = max(float(speed_fn(density)), 0.1)
-        capacity = max(float(data.get("capacity", 0.0)), 0.001)
-        downstream_pressure = float(G.nodes[v].get("people", 0.0)) / node_out_capacity(G, v)
-        capacity_penalty = 1.0 / capacity
-        return (length / safe_speed) + 0.10 * downstream_pressure + capacity_penalty
+        return max(length, 0.001)
 
     if method == OUR_SINGLE_PATH_METHOD:
         return our_edge_cost_components(G, u, v, speed_fn, method=normalized_method)["total_cost"]
@@ -416,6 +527,24 @@ def update_dynamic_weights(G, method, speed_fn, weight_key="sim_weight"):
     for u, v, data in G.edges(data=True):
         data[weight_key] = edge_dynamic_cost(G, u, v, method, speed_fn)
 
+    # Integrate per-predecessor approach pressure into edge weights so that
+    # A* naturally avoids approaches to already-crowded exits during search.
+    if uses_predictive_single_path(method):
+        weights = our_penalty_weights(method)
+        ep_weight = weights.get("exit_pressure", 0.0)
+        if ep_weight > 0:
+            exits = [n for n, d in G.nodes(data=True) if d.get("type") == "exit"]
+            for exit_node in exits:
+                for pred in G.predecessors(exit_node):
+                    pressure = smoothed_approach_pressure(G, pred, exit_node)
+                    if pressure <= 0:
+                        continue
+                    extra = ep_weight * pressure
+                    for pred_pred in G.predecessors(pred):
+                        if G.has_edge(pred_pred, pred):
+                            current = float(G[pred_pred][pred].get(weight_key, 0.0))
+                            G[pred_pred][pred][weight_key] = current + extra
+
 
 def enumerate_exit_paths(G, current_node, method, shortest_dists, speed_fn, weight_key="sim_weight"):
     method = normalize_method(method)
@@ -460,8 +589,6 @@ def enumerate_exit_paths(G, current_node, method, shortest_dists, speed_fn, weig
             continue
 
         cost = sum(G[path[i]][path[i + 1]][weight_key] for i in range(len(path) - 1))
-        if uses_predictive_single_path(method):
-            cost += our_penalty_weights(method)["exit_pressure"] * exit_approach_pressure(G, target)
 
         candidates.append(
             {

@@ -1,8 +1,8 @@
 # Scenario 1 + Pathfinder Validation
 
 - Scope: system-level Scenario 1 (`常规突发`) with Pathfinder-derived waiting-zone geometry and distance data.
-- Compared methods: `ACO`, `PaperImprovedAStar`, `OurSinglePath`.
-- Ablations: remove `source release`, `downstream release`, and `exit pressure` from `OurSinglePath` one at a time.
+- Compared methods: `ACO`, `PaperImprovedAStar`, `AdaptiveSingleNextHop`.
+- Ablations: remove `upstream load penalty`, `downstream load penalty`, `exit pressure penalty`, plus a `NoPredictivePenalties` lower-bound variant.
 
 ## What To Show In The Paper
 
@@ -14,30 +14,31 @@
 
 ## High-Level Findings
 
-- Fastest total evacuation among the three main methods: `OurSinglePath` = `279.00s`.
-- Lowest queueing burden: `OurSinglePath` = `50225.00` person-s.
-- Lowest moderate congestion exposure (`density > 3`): `OurSinglePath` = `18513.00` person-s.
-- Lowest severe congestion exposure (`density > 5`): `ACO` = `8027.00` person-s.
-- Lowest peak density: `PaperImprovedAStar` = `16.28` person/m^2.
-- `OurSinglePath` vs `ACO`: evacuation `-67.00s`, queueing `-7109.00` person-s, moderate congestion `-562.00` person-s, severe congestion `+2895.00` person-s.
-- `OurSinglePath` vs `PaperImprovedAStar`: evacuation `-3.00s`, queueing `-11582.00` person-s, moderate congestion `-1551.00` person-s, severe congestion `-1934.00` person-s.
+- Fastest total evacuation among the three main methods: `AdaptiveSingleNextHop` = `319.50s`.
+- Lowest queueing burden: `AdaptiveSingleNextHop` = `43807.50` person-s.
+- Lowest moderate congestion exposure (`density > 3`): `AdaptiveSingleNextHop` = `24666.00` person-s.
+- Lowest severe congestion exposure (`density > 5`): `AdaptiveSingleNextHop` = `16971.50` person-s.
+- Lowest peak density: `AdaptiveSingleNextHop` = `19.05` person/m^2.
+- `AdaptiveSingleNextHop` vs `ACO`: evacuation `-139.00s`, queueing `-9602.50` person-s, moderate congestion `-6332.50` person-s, severe congestion `-7583.00` person-s.
+- `AdaptiveSingleNextHop` vs `PaperImprovedAStar`: evacuation `-30.50s`, queueing `-5142.50` person-s, moderate congestion `-1170.00` person-s, severe congestion `-1181.50` person-s.
 - `congestion_exposure_time_person_s` is now interpreted as the moderate (`density > 3`) exposure metric for backward compatibility.
 - Exit-approach effect should be read from the mechanism-attribution chart rather than the current `exit_usage` aggregate, because this bookkeeping path is not yet exposing usable totals in the system-level metrics.
 
 ## Why The Added Terms Matter
 
-- `OurNoSourceRelease` relative to `OurSinglePath`: evacuation `+18.00s`, queueing `-21757.00` person-s, moderate congestion `-8984.00` person-s, severe congestion `-4492.00` person-s.
-- `OurNoDownstreamRelease` relative to `OurSinglePath`: evacuation `+18.00s`, queueing `-21757.00` person-s, moderate congestion `-8984.00` person-s, severe congestion `-4492.00` person-s.
-- `OurNoExitPressure` relative to `OurSinglePath`: evacuation `+18.00s`, queueing `-21757.00` person-s, moderate congestion `-8984.00` person-s, severe congestion `-4492.00` person-s.
+- `NoUpstreamLoadPenalty` relative to `AdaptiveSingleNextHop`: evacuation `+17.00s`, queueing `-2125.50` person-s, moderate congestion `-425.00` person-s, severe congestion `-2126.50` person-s.
+- `NoDownstreamLoadPenalty` relative to `AdaptiveSingleNextHop`: evacuation `+0.00s`, queueing `+46.50` person-s, moderate congestion `+85.50` person-s, severe congestion `+96.50` person-s.
+- `NoExitPressurePenalty` relative to `AdaptiveSingleNextHop`: evacuation `+0.00s`, queueing `+311.50` person-s, moderate congestion `+384.50` person-s, severe congestion `+334.00` person-s.
+- `NoPredictivePenalties` relative to `AdaptiveSingleNextHop`: evacuation `+14.00s`, queueing `-1724.50` person-s, moderate congestion `+260.50` person-s, severe congestion `-1783.00` person-s.
 
 ## How To Explain Rerouting
 
-- `OurSinglePath vs ACO`: divergence `4137`, baseline changes `2025`, our changes `58`, affected sources `27`, guided lower-density share `2.3%`.
-- `OurSinglePath vs PaperImprovedAStar`: divergence `2162`, baseline changes `24`, our changes `58`, affected sources `21`, guided lower-density share `14.1%`.
+- `AdaptiveSingleNextHop vs ACO`: divergence `2773`, baseline changes `0`, our changes `258`, affected sources `28`, guided lower-density share `24.7%`.
+- `AdaptiveSingleNextHop vs PaperImprovedAStar`: divergence `7562`, baseline changes `0`, our changes `258`, affected sources `28`, guided lower-density share `11.4%`.
 
 ## Mechanism Interpretation
 
-- Divergence samples used for `PaperImprovedAStar` vs `OurSinglePath`: `79`.
+- Divergence samples used for `PaperImprovedAStar` vs `AdaptiveSingleNextHop`: `240`.
 - In the mechanism chart, compare `BaselineStylePath` and `OurChosenPath` under the same crowd state.
 - If the blue/red added-penalty blocks are clearly higher on the baseline-style path, that is direct evidence that your three added terms are not decorative: they are the reason the algorithm avoids seemingly short but hard-to-release paths.
 

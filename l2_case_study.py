@@ -75,16 +75,15 @@ def make_route_comparison_figure(G_base, case_spec, output_file):
     shortest_dists = dict(nx.all_pairs_dijkstra_path_length(case_state, weight="length"))
 
     method_specs = [
-        (nw.TRADITIONAL_METHOD, "Traditional", "#D62728", "dashed"),
         (nw.PAPER_SINGLE_PATH_METHOD, "Paper Improved A*", "#F28E2B", "dashdot"),
-        (nw.OUR_SINGLE_PATH_METHOD, "Our Single-Path A*", "#1F77B4", "solid"),
+        (nw.OUR_SINGLE_PATH_METHOD, "Adaptive Single-Next-Hop Guidance", "#1F77B4", "solid"),
     ]
 
     paths = {}
     for method, label, color, linestyle in method_specs:
         paths[label] = nw.get_best_path_to_exit(case_state, case_spec["origin"], method, shortest_dists)
 
-    fig, axes = plt.subplots(1, 3, figsize=(24, 8))
+    fig, axes = plt.subplots(1, len(method_specs), figsize=(8 * len(method_specs), 8))
     handles = []
     for ax, (_, label, color, linestyle) in zip(axes, method_specs):
         handle = _draw_route_panel(
@@ -104,7 +103,7 @@ def make_route_comparison_figure(G_base, case_spec, output_file):
         fontweight="bold",
         y=0.98,
     )
-    fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False)
+    fig.legend(handles=handles, loc="lower center", ncol=len(method_specs), frameon=False)
     plt.tight_layout(rect=[0, 0.06, 1, 0.95])
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig)

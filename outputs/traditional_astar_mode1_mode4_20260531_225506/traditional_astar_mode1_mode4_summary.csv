@@ -1,0 +1,3 @@
+﻿scenario_mode,scenario_label,capacity_factor,total_people,method,time,avg_travel_time,avg_speed,queueing_time,congestion_exposure_time,severe_congestion_exposure_time,edge_congestion_exposure_time,edge_severe_congestion_exposure_time,peak_congestion_index,wall_clock_runtime_s
+1,mode1_regular_emergency,0.55,2187,TraditionalAStar_StaticLength,528.5,107.07108342315458,1.1342006074142248,121081.0,68896.0,40244.0,0.0,0.0,4.647272727272727,11.254599000094458
+4,mode4_bidirectional_full_train,0.55,17905,TraditionalAStar_StaticLength,4073.5,123.69877239484977,0.9208409178257315,10303940.0,11432313.0,10435694.0,597490.0,429856.5,66.28038628038628,98.19668250018731

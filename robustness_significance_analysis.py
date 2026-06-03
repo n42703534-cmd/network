@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import math
 import random
@@ -30,11 +31,13 @@ DEFAULT_RUNS = 30
 BASE_SEED = 20260513
 PERMUTATION_DRAWS = 20000
 BOOTSTRAP_DRAWS = 10000
+DEFAULT_CAPACITY_LOW = 0.95
+DEFAULT_CAPACITY_HIGH = 1.05
 
 METHODS = [
     ("ACO", spr.ANT_COLONY_METHOD),
     ("PaperImprovedAStar", spr.PAPER_SINGLE_PATH_METHOD),
-    ("OurSinglePath", spr.OUR_SINGLE_PATH_METHOD),
+    ("AdaptiveSingleNextHop", spr.OUR_SINGLE_PATH_METHOD),
 ]
 
 METRICS = [
@@ -132,24 +135,42 @@ def bootstrap_mean_ci(diffs, draws=BOOTSTRAP_DRAWS, seed=5678):
     return percentile(samples, 0.025), percentile(samples, 0.975)
 
 
-def collect_raw_rows(graph, pop_dict, runs):
+def build_perturbed_graph(graph, run_seed, capacity_low, capacity_high, failure_facility=None):
+    scenario_graph = copy.deepcopy(graph)
+    if failure_facility:
+        if failure_facility not in scenario_graph.nodes:
+            raise ValueError(f"Failure facility {failure_facility} not found in graph.")
+        network._apply_node_disruption(scenario_graph, failure_facility, factor=0.0)
+    network.apply_capacity_noise(scenario_graph, random.Random(run_seed), capacity_low, capacity_high)
+    return scenario_graph
+
+
+def collect_raw_rows(graph, pop_dict, runs, capacity_low, capacity_high, failure_facility=None):
     rows = []
     for run_idx in range(1, runs + 1):
         run_seed = BASE_SEED + run_idx
         print(f"Running robustness sample {run_idx}/{runs}")
         for method_label, method in METHODS:
-            rng = random.Random(run_seed)
-            metrics = network.run_simulation_for_metrics_timed(
+            scenario_graph = build_perturbed_graph(
                 graph,
+                run_seed,
+                capacity_low,
+                capacity_high,
+                failure_facility=failure_facility,
+            )
+            metrics = network.run_simulation_for_metrics_timed(
+                scenario_graph,
                 pop_dict,
                 method=method,
-                apply_noise=True,
-                rng=rng,
+                apply_noise=False,
             )
             rows.append(
                 {
                     "run_id": run_idx,
                     "noise_seed": run_seed,
+                    "capacity_low": capacity_low,
+                    "capacity_high": capacity_high,
+                    "failure_facility": failure_facility or "",
                     "method_label": method_label,
                     "evacuation_time_s": float(metrics["time"]),
                     "queueing_time_person_s": float(metrics["queueing_time"]),
@@ -187,8 +208,8 @@ def build_summary_rows(raw_rows):
 def build_significance_rows(raw_rows, runs):
     by_run_method = {(row["run_id"], row["method_label"]): row for row in raw_rows}
     comparisons = [
-        ("OurSinglePath", "ACO"),
-        ("OurSinglePath", "PaperImprovedAStar"),
+        ("AdaptiveSingleNextHop", "ACO"),
+        ("AdaptiveSingleNextHop", "PaperImprovedAStar"),
     ]
     rows = []
     for better, worse in comparisons:
@@ -229,7 +250,7 @@ def draw_boxplots(raw_rows):
     colors = {
         "ACO": "#4E79A7",
         "PaperImprovedAStar": "#59A14F",
-        "OurSinglePath": "#E15759",
+        "AdaptiveSingleNextHop": "#E15759",
     }
     for ax, (metric_key, metric_label) in zip(axes, METRICS):
         data = []
@@ -250,7 +271,7 @@ def draw_boxplots(raw_rows):
     plt.close()
 
 
-def build_report(summary_rows, significance_rows, runs):
+def build_report(summary_rows, significance_rows, runs, capacity_low, capacity_high, failure_facility=None):
     summary_lookup = {(row["method_label"], row["metric_key"]): row for row in summary_rows}
     sig_lookup = {(row["comparison"], row["metric_key"]): row for row in significance_rows}
 
@@ -261,9 +282,10 @@ def build_report(summary_rows, significance_rows, runs):
         "# 鲁棒性与统计显著性检验",
         "",
         "- 场景：Scenario 1 + Pathfinder 几何",
-        "- 扰动方式：边容量独立乘以 `U(0.95, 1.05)` 随机因子",
+        f"- 扰动方式：边容量独立乘以 `U({capacity_low:.2f}, {capacity_high:.2f})` 随机因子",
+        f"- 固定设施失效：`{failure_facility}`" if failure_facility else "- 固定设施失效：无",
         f"- 重复次数：`{runs}`",
-        "- 比较算法：`ACO`、`PaperImprovedAStar`、`OurSinglePath`",
+        "- 比较算法：`ACO`、`PaperImprovedAStar`、`AdaptiveSingleNextHop`",
         "- 显著性方法：配对符号翻转置换检验（paired sign-flip permutation test）",
         "",
         "## 各算法均值 ± 标准差",
@@ -278,7 +300,7 @@ def build_report(summary_rows, significance_rows, runs):
         lines.append("")
 
     lines.extend(["## 显著性结果", ""])
-    for comparison in ["OurSinglePath vs ACO", "OurSinglePath vs PaperImprovedAStar"]:
+    for comparison in ["AdaptiveSingleNextHop vs ACO", "AdaptiveSingleNextHop vs PaperImprovedAStar"]:
         lines.append(f"### {comparison}")
         for metric_key, metric_label in METRICS:
             row = sig_lookup[(comparison, metric_key)]
@@ -304,12 +326,24 @@ def build_report(summary_rows, significance_rows, runs):
 
 def main():
     parser = argparse.ArgumentParser(description="Scenario 1 鲁棒性与统计显著性分析")
-    parser.add_argument("--runs", type=int, default=DEFAULT_RUNS, help="Monte Carlo 重复次数，默认 10，终稿建议 30")
+    parser.add_argument("--runs", type=int, default=DEFAULT_RUNS, help="Monte Carlo 重复次数，默认 30")
+    parser.add_argument("--capacity-low", type=float, default=DEFAULT_CAPACITY_LOW, help="边容量随机扰动下界")
+    parser.add_argument("--capacity-high", type=float, default=DEFAULT_CAPACITY_HIGH, help="边容量随机扰动上界")
+    parser.add_argument("--failure-facility", default=None, help="可选：固定中断的设施节点名，例如 Escalator_L2_up1")
     args = parser.parse_args()
+    if args.capacity_low <= 0 or args.capacity_high <= 0 or args.capacity_low > args.capacity_high:
+        raise ValueError("Capacity perturbation range must satisfy 0 < low <= high.")
 
     graph = network.build_graph()
     pop_dict = build_scenario1_pop_dict()
-    raw_rows = collect_raw_rows(graph, pop_dict, args.runs)
+    raw_rows = collect_raw_rows(
+        graph,
+        pop_dict,
+        args.runs,
+        args.capacity_low,
+        args.capacity_high,
+        failure_facility=args.failure_facility,
+    )
     summary_rows = build_summary_rows(raw_rows)
     significance_rows = build_significance_rows(raw_rows, args.runs)
 
@@ -319,6 +353,9 @@ def main():
         [
             "run_id",
             "noise_seed",
+            "capacity_low",
+            "capacity_high",
+            "failure_facility",
             "method_label",
             "evacuation_time_s",
             "queueing_time_person_s",
@@ -364,7 +401,17 @@ def main():
         ],
     )
     draw_boxplots(raw_rows)
-    OUTPUT_REPORT.write_text(build_report(summary_rows, significance_rows, args.runs), encoding="utf-8")
+    OUTPUT_REPORT.write_text(
+        build_report(
+            summary_rows,
+            significance_rows,
+            args.runs,
+            args.capacity_low,
+            args.capacity_high,
+            failure_facility=args.failure_facility,
+        ),
+        encoding="utf-8",
+    )
     print(f"Wrote {OUTPUT_RAW.name}")
     print(f"Wrote {OUTPUT_SUMMARY.name}")
     print(f"Wrote {OUTPUT_SIGNIFICANCE.name}")

@@ -1,11 +1,11 @@
 ﻿comparison,metric_key,metric_label,mean_delta_our_minus_baseline,median_delta_our_minus_baseline,wins_our,ties,losses_our,win_rate_our,permutation_p_value,bootstrap_ci95_low,bootstrap_ci95_high
-OurSinglePath vs ACO,evacuation_time_s,总疏散时间 (s),-83.4,-73.0,30,0,0,1.0,4.999750012499375e-05,-92.53333333333333,-75.33333333333333
-OurSinglePath vs ACO,queueing_time_person_s,累计排队时间 (人·秒),-8016.433333333333,-7868.5,30,0,0,1.0,4.999750012499375e-05,-8638.438333333334,-7428.195
-OurSinglePath vs ACO,moderate_congestion_exposure_time_person_s,中度拥挤暴露 (density > 3),-781.0,-664.0,23,0,7,0.7666666666666667,9.99950002499875e-05,-1150.9675000000002,-441.3325
-OurSinglePath vs ACO,severe_congestion_exposure_time_person_s,重度拥挤暴露 (density > 5),2729.2,2863.5,0,0,30,0.0,4.999750012499375e-05,2325.6666666666665,3138.0691666666667
-OurSinglePath vs ACO,peak_density_p_per_m2,峰值密度 (人/m^2),-0.8002000500125025,0.0,12,18,0,0.4,0.0004999750012499375,-1.276985913144952,-0.39009752438109474
-OurSinglePath vs PaperImprovedAStar,evacuation_time_s,总疏散时间 (s),-56.666666666666664,-98.5,30,0,0,1.0,4.999750012499375e-05,-73.53333333333333,-39.665833333333346
-OurSinglePath vs PaperImprovedAStar,queueing_time_person_s,累计排队时间 (人·秒),-11311.466666666667,-11474.5,30,0,0,1.0,4.999750012499375e-05,-11817.604166666668,-10775.355
-OurSinglePath vs PaperImprovedAStar,moderate_congestion_exposure_time_person_s,中度拥挤暴露 (density > 3),-2256.0666666666666,-2020.5,30,0,0,1.0,4.999750012499375e-05,-2706.2799999999997,-1823.4850000000001
-OurSinglePath vs PaperImprovedAStar,severe_congestion_exposure_time_person_s,重度拥挤暴露 (density > 5),-1873.1666666666667,-1710.0,30,0,0,1.0,4.999750012499375e-05,-2315.6366666666668,-1445.3533333333335
-OurSinglePath vs PaperImprovedAStar,peak_density_p_per_m2,峰值密度 (人/m^2),0.0,0.0,0,30,0,0.0,1.0,0.0,0.0
+AdaptiveSingleNextHop vs ACO,evacuation_time_s,总疏散时间 (s),-61.766666666666666,-25.5,30,0,0,1.0,4.999750012499375e-05,-81.11708333333333,-42.68250000000001
+AdaptiveSingleNextHop vs ACO,queueing_time_person_s,累计排队时间 (人·秒),-8274.95,-8270.75,30,0,0,1.0,4.999750012499375e-05,-8778.810416666665,-7773.163750000001
+AdaptiveSingleNextHop vs ACO,moderate_congestion_exposure_time_person_s,中度拥挤暴露 (density > 3),-5510.2,-5254.25,30,0,0,1.0,4.999750012499375e-05,-5988.370833333334,-5046.14125
+AdaptiveSingleNextHop vs ACO,severe_congestion_exposure_time_person_s,重度拥挤暴露 (density > 5),-6768.133333333333,-6413.5,30,0,0,1.0,4.999750012499375e-05,-7353.400833333333,-6221.361666666667
+AdaptiveSingleNextHop vs ACO,peak_density_p_per_m2,峰值密度 (人/m^2),-2.65758330474898,-2.8571428571428577,28,0,2,0.9333333333333333,4.999750012499375e-05,-3.214858495021352,-2.083734781938666
+AdaptiveSingleNextHop vs PaperImprovedAStar,evacuation_time_s,总疏散时间 (s),54.11666666666667,85.25,8,1,21,0.26666666666666666,9.99950002499875e-05,34.31666666666667,72.4
+AdaptiveSingleNextHop vs PaperImprovedAStar,queueing_time_person_s,累计排队时间 (人·秒),-4015.366666666667,-3890.0,30,0,0,1.0,4.999750012499375e-05,-4369.922916666667,-3672.799583333334
+AdaptiveSingleNextHop vs PaperImprovedAStar,moderate_congestion_exposure_time_person_s,中度拥挤暴露 (density > 3),-374.81666666666666,-383.25,19,0,11,0.6333333333333333,0.041247937603119844,-721.0883333333334,-39.71625
+AdaptiveSingleNextHop vs PaperImprovedAStar,severe_congestion_exposure_time_person_s,重度拥挤暴露 (density > 5),-412.15,-165.25,16,0,14,0.5333333333333333,0.07479626018699065,-850.3754166666666,11.034999999999975
+AdaptiveSingleNextHop vs PaperImprovedAStar,peak_density_p_per_m2,峰值密度 (人/m^2),0.9821300563236041,0.6612903225806441,3,9,18,0.1,4.999750012499375e-05,0.5620967741935481,1.4373783922171008

@@ -46,10 +46,9 @@ PLANNING_REPEAT = 100
 EVACUEES = 100
 LINE_ID = "L7"
 METHODS = [
-    ("Traditional", spr.TRADITIONAL_METHOD),
     ("ImprovedAStar", spr.PAPER_SINGLE_PATH_METHOD),
     ("ACO", spr.ANT_COLONY_METHOD),
-    ("OurSinglePath", spr.OUR_SINGLE_PATH_METHOD),
+    ("AdaptiveSingleNextHop", spr.OUR_SINGLE_PATH_METHOD),
     ("OurSplitGuidance", spr.OUR_SPLIT_GUIDANCE_METHOD),
 ]
 
@@ -83,6 +82,7 @@ def _build_branch_path_map(case_state, origin, method, shortest_dists):
     candidates = network.split_router.select_candidate_paths(
         case_state,
         origin,
+        method,
         shortest_dists,
         network.fruin_speed,
     )

@@ -14,19 +14,18 @@
 <text x="84" y="160.20" text-anchor="end" font-size="12" font-family="Arial" fill="#444">200</text>
 <line x1="96" y1="72.00" x2="956" y2="72.00" stroke="#E3E3E3" stroke-width="1"/>
 <text x="84" y="77.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">250</text>
-<rect x="229.30" y="384.91" width="163.40" height="103.09" fill="#BDBDBD" stroke="#333" stroke-width="0.8"/>
-<rect x="229.30" y="120.22" width="163.40" height="264.69" fill="#8CD17D" stroke="#333" stroke-width="0.8"/>
-<rect x="229.30" y="118.65" width="163.40" height="1.57" fill="#76B7B2" stroke="#333" stroke-width="0.8"/>
-<rect x="229.30" y="111.79" width="163.40" height="6.85" fill="#F28E2B" stroke="#333" stroke-width="0.8"/>
-<rect x="229.30" y="111.71" width="163.40" height="0.09" fill="#E15759" stroke="#333" stroke-width="0.8"/>
-<rect x="229.30" y="104.34" width="163.40" height="7.36" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="279.45" width="163.40" height="208.55" fill="#BDBDBD" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="171.98" width="163.40" height="107.48" fill="#8CD17D" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="170.55" width="163.40" height="1.43" fill="#76B7B2" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="167.76" width="163.40" height="2.79" fill="#F28E2B" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="167.64" width="163.40" height="0.12" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="229.30" y="166.26" width="163.40" height="1.38" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
 <text x="311.00" y="554" text-anchor="middle" font-size="12" font-family="Arial">BaselineStylePath</text>
-<rect x="659.30" y="306.86" width="163.40" height="181.14" fill="#BDBDBD" stroke="#333" stroke-width="0.8"/>
-<rect x="659.30" y="178.85" width="163.40" height="128.01" fill="#8CD17D" stroke="#333" stroke-width="0.8"/>
-<rect x="659.30" y="177.21" width="163.40" height="1.64" fill="#76B7B2" stroke="#333" stroke-width="0.8"/>
-<rect x="659.30" y="173.20" width="163.40" height="4.01" fill="#F28E2B" stroke="#333" stroke-width="0.8"/>
-<rect x="659.30" y="172.87" width="163.40" height="0.32" fill="#E15759" stroke="#333" stroke-width="0.8"/>
-<rect x="659.30" y="170.34" width="163.40" height="2.54" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="384.04" width="163.40" height="103.96" fill="#BDBDBD" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="279.92" width="163.40" height="104.12" fill="#8CD17D" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="278.28" width="163.40" height="1.64" fill="#76B7B2" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="275.42" width="163.40" height="2.86" fill="#F28E2B" stroke="#333" stroke-width="0.8"/>
+<rect x="659.30" y="274.07" width="163.40" height="1.35" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
 <text x="741.00" y="554" text-anchor="middle" font-size="12" font-family="Arial">OurChosenPath</text>
 <rect x="96" y="522" width="16" height="16" fill="#BDBDBD" stroke="#333" stroke-width="0.7"/>
 <text x="120" y="535" font-size="13" font-family="Arial">base_cost</text>

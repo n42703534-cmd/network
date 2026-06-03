@@ -16,25 +16,25 @@
 <text x="84" y="77.00" text-anchor="end" font-size="12" font-family="Arial" fill="#444">500</text>
 <line x1="96" y1="528.00" x2="1016" y2="528.00" stroke="#666" stroke-width="1.2"/>
 <text x="211.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L2</text>
-<rect x="132.62" y="211.54" width="46.37" height="316.46" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
-<rect x="187.82" y="224.76" width="46.37" height="303.24" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
-<rect x="243.02" y="291.34" width="46.37" height="236.66" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="132.62" y="201.96" width="46.37" height="326.04" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="187.82" y="208.80" width="46.37" height="319.20" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="243.02" y="241.18" width="46.37" height="286.82" fill="#E15759" stroke="#333" stroke-width="0.8"/>
 <text x="441.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L7</text>
-<rect x="362.62" y="136.75" width="46.37" height="391.25" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
-<rect x="417.82" y="201.05" width="46.37" height="326.95" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
-<rect x="473.02" y="340.58" width="46.37" height="187.42" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="362.62" y="109.85" width="46.37" height="418.15" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="417.82" y="236.62" width="46.37" height="291.38" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="473.02" y="236.62" width="46.37" height="291.38" fill="#E15759" stroke="#333" stroke-width="0.8"/>
 <text x="671.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L16</text>
-<rect x="592.62" y="216.55" width="46.37" height="311.45" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
-<rect x="647.82" y="265.34" width="46.37" height="262.66" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
-<rect x="703.02" y="268.99" width="46.37" height="259.01" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="592.62" y="202.42" width="46.37" height="325.58" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="647.82" y="246.19" width="46.37" height="281.81" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="703.02" y="276.74" width="46.37" height="251.26" fill="#E15759" stroke="#333" stroke-width="0.8"/>
 <text x="901.00" y="594" text-anchor="middle" font-size="12" font-family="Arial">L18</text>
-<rect x="822.62" y="217.46" width="46.37" height="310.54" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
-<rect x="877.82" y="268.99" width="46.37" height="259.01" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
-<rect x="933.02" y="295.90" width="46.37" height="232.10" fill="#E15759" stroke="#333" stroke-width="0.8"/>
+<rect x="822.62" y="202.87" width="46.37" height="325.13" fill="#4E79A7" stroke="#333" stroke-width="0.8"/>
+<rect x="877.82" y="247.10" width="46.37" height="280.90" fill="#59A14F" stroke="#333" stroke-width="0.8"/>
+<rect x="933.02" y="276.29" width="46.37" height="251.71" fill="#E15759" stroke="#333" stroke-width="0.8"/>
 <rect x="96" y="562" width="16" height="16" fill="#4E79A7" stroke="#333" stroke-width="0.7"/>
 <text x="120" y="575" font-size="13" font-family="Arial">ACO</text>
 <rect x="284" y="562" width="16" height="16" fill="#59A14F" stroke="#333" stroke-width="0.7"/>
 <text x="308" y="575" font-size="13" font-family="Arial">PaperImprovedAStar</text>
 <rect x="472" y="562" width="16" height="16" fill="#E15759" stroke="#333" stroke-width="0.7"/>
-<text x="496" y="575" font-size="13" font-family="Arial">OurSinglePath</text>
+<text x="496" y="575" font-size="13" font-family="Arial">AdaptiveSingleNextHop</text>
 </svg>

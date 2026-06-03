@@ -1,0 +1,5 @@
+﻿scenario_mode,scenario_label,total_people,method,time,queueing_time,moderate_congestion_exposure_time,severe_congestion_exposure_time,avg_speed,wall_clock_runtime_s
+2,mode2_upbound_full_train,10046,ACO,1206.5,1699159.0,1831412.5,1586617.5,1.0112873089431886,19.778618700103834
+2,mode2_upbound_full_train,10046,ImprovedAStar,647.5,595064.5,693431.5,410314.5,1.0456934637074429,679.6992757001426
+2,mode2_upbound_full_train,10046,AdaptiveSingleNextHop,666.5,513001.5,637580.5,383503.0,1.033762937407289,606.7619908000343
+3,mode3_downbound_full_train,10046,ACO,1206.5,1587960.0,1718454.5,1474122.0,1.0109462258686999,20.401538599980995

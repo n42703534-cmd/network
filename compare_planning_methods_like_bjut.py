@@ -19,7 +19,7 @@ METHODS = (
 METHOD_LABELS = {
     network.PAPER_SINGLE_PATH_METHOD: "PaperImprovedAStar",
     network.ANT_COLONY_METHOD: "AntColony",
-    network.OUR_SINGLE_PATH_METHOD: "OurSinglePath",
+    network.OUR_SINGLE_PATH_METHOD: "AdaptiveSingleNextHop",
 }
 
 
@@ -74,7 +74,7 @@ def main() -> None:
     colors = {
         "PaperImprovedAStar": "#4E79A7",
         "AntColony": "#59A14F",
-        "OurSinglePath": "#F28E2B",
+        "AdaptiveSingleNextHop": "#F28E2B",
     }
     fig, axes = plt.subplots(1, 2, figsize=(14, 5), dpi=220)
     width = 0.24

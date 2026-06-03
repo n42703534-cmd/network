@@ -1,0 +1,4 @@
+﻿scenario_mode,scenario_label,total_people,method,time,avg_travel_time,avg_speed,queueing_time,congestion_exposure_time,severe_congestion_exposure_time,edge_congestion_exposure_time,edge_severe_congestion_exposure_time,peak_congestion_index,wall_clock_runtime_s
+4,mode4_bidirectional_full_train_edge_density,17905,ACO,2262.5,159.11444908018981,0.8808390994947589,4647520.5,5677911.5,4908226.5,787198.0,625727.5,41.36666666666667,91.70781950000674
+4,mode4_bidirectional_full_train_edge_density,17905,ImprovedAStar,887.0,121.51508563921831,0.9645094113912676,1947752.5,2024365.0,1180222.5,0.0,0.0,10.055478502080444,362.88248870009556
+4,mode4_bidirectional_full_train_edge_density,17905,AdaptiveSingleNextHop,811.5,108.50499496161655,0.9507806546465601,1298865.5,1461533.0,725283.0,0.0,0.0,8.035190615835777,1619.8954529000912

@@ -1,0 +1,16 @@
+﻿scenario_mode,scenario_label,total_people,method,line,clearance_time,core_clearance_time,transfer_clearance_time,congestion_exposure_time,moderate_congestion_exposure_time
+2,Mode 2 - Upbound full train,10046,ACO,L7,699.5,699.5,458.5,449209.5,449209.5
+2,Mode 2 - Upbound full train,10046,ACO,L2,1206.5,1206.5,1148.5,656583.5,656583.5
+2,Mode 2 - Upbound full train,10046,ACO,L16,1149.5,461.5,1149.5,154928.0,154928.0
+2,Mode 2 - Upbound full train,10046,ACO,L18,1149.0,1149.0,267.5,478681.5,478681.5
+2,Mode 2 - Upbound full train,10046,ACO,Maglev,441.5,441.5,,92010.0,92010.0
+2,Mode 2 - Upbound full train,10046,ImprovedAStar,L7,647.5,647.5,360.0,212085.5,212085.5
+2,Mode 2 - Upbound full train,10046,ImprovedAStar,L2,644.0,428.5,644.0,193045.5,193045.5
+2,Mode 2 - Upbound full train,10046,ImprovedAStar,L16,646.0,376.0,646.0,46435.5,46435.5
+2,Mode 2 - Upbound full train,10046,ImprovedAStar,L18,647.0,647.0,267.5,202666.5,202666.5
+2,Mode 2 - Upbound full train,10046,ImprovedAStar,Maglev,325.5,325.5,,39198.5,39198.5
+2,Mode 2 - Upbound full train,10046,AdaptiveSingleNextHop,L7,666.5,666.5,375.0,188175.0,188175.0
+2,Mode 2 - Upbound full train,10046,AdaptiveSingleNextHop,L2,569.0,428.0,569.0,181902.5,181902.5
+2,Mode 2 - Upbound full train,10046,AdaptiveSingleNextHop,L16,495.0,284.5,495.0,28584.0,28584.0
+2,Mode 2 - Upbound full train,10046,AdaptiveSingleNextHop,L18,570.0,570.0,267.5,191371.0,191371.0
+2,Mode 2 - Upbound full train,10046,AdaptiveSingleNextHop,Maglev,374.5,374.5,,47548.0,47548.0

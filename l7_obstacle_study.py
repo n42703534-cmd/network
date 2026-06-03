@@ -16,9 +16,8 @@ L7_CASE_SPECS = [spec for spec in nw.SINGLE_PATH_CASE_SPECS if spec["line"] == "
 REP_CASE = next(spec for spec in L7_CASE_SPECS if spec["case_id"] == "L7_C1")
 
 METHOD_SPECS = [
-    (nw.TRADITIONAL_METHOD, "Traditional", "#D62728", "dashed"),
     (nw.PAPER_SINGLE_PATH_METHOD, "Paper Improved A*", "#F28E2B", "dashdot"),
-    (nw.OUR_SINGLE_PATH_METHOD, "Our Single-Path A*", "#1F77B4", "solid"),
+    (nw.OUR_SINGLE_PATH_METHOD, "Adaptive Single-Next-Hop Guidance", "#1F77B4", "solid"),
 ]
 
 
@@ -84,7 +83,7 @@ def make_route_figure(G_base, case_spec, output_file):
     case_state = nw.build_single_path_case_state(G_base, case_spec)
     shortest_dists = dict(nx.all_pairs_dijkstra_path_length(case_state, weight="length"))
 
-    fig, axes = plt.subplots(1, 3, figsize=(24, 8))
+    fig, axes = plt.subplots(1, len(METHOD_SPECS), figsize=(8 * len(METHOD_SPECS), 8))
     for ax, (method, label, color, linestyle) in zip(axes, METHOD_SPECS):
         path = nw.get_best_path_to_exit(case_state, case_spec["origin"], method, shortest_dists)
         _draw_route_panel(ax, G_base, path, f"{case_spec['case_id']} | {label}", color, linestyle, label)

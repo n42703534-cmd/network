@@ -15,16 +15,16 @@ OUT_DELTA_PNG = ROOT / "single_path_three_line_delta.png"
 OUT_REPORT_MD = ROOT / "single_path_three_line_report.md"
 
 LINES = ["L2", "L7", "L18"]
-METHODS = ["PaperImprovedAStar", "AntColony", "OurSinglePath"]
+METHODS = ["PaperImprovedAStar", "AntColony", "AdaptiveSingleNextHop"]
 METHOD_LABELS = {
     "PaperImprovedAStar": "PaperImprovedAStar",
     "AntColony": "AntColony",
-    "OurSinglePath": "OurSinglePath",
+    "AdaptiveSingleNextHop": "AdaptiveSingleNextHop",
 }
 METHOD_COLORS = {
     "PaperImprovedAStar": "#9ecae1",
     "AntColony": "#74c476",
-    "OurSinglePath": "#f4a582",
+    "AdaptiveSingleNextHop": "#f4a582",
 }
 
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "Microsoft JhengHei"]
@@ -81,7 +81,7 @@ def build_summary_chart(summary: pd.DataFrame) -> None:
         ax.grid(axis="y", alpha=0.2)
 
     axes[0].legend(loc="upper right", fontsize=9)
-    fig.suptitle("三条线路的单路径算法层总览对比", fontsize=15, y=0.98)
+    fig.suptitle("三条线路的自适应引导算法层总览对比", fontsize=15, y=0.98)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(OUT_SUMMARY_PNG, bbox_inches="tight")
     plt.close(fig)
@@ -112,7 +112,7 @@ def build_delta_chart(summary: pd.DataFrame) -> None:
     for ax, (metric, title) in zip(axes, metrics):
         for idx, baseline in enumerate(baselines):
             deltas = [
-                value(summary, line, "OurSinglePath", metric) - value(summary, line, baseline, metric)
+                value(summary, line, "AdaptiveSingleNextHop", metric) - value(summary, line, baseline, metric)
                 for line in LINES
             ]
             offset = (idx - 0.5) * width
@@ -135,7 +135,7 @@ def build_delta_chart(summary: pd.DataFrame) -> None:
         ax.grid(axis="y", alpha=0.2)
 
     axes[0].legend(loc="upper right", fontsize=9)
-    fig.suptitle("OurSinglePath 相对 PaperImprovedAStar 与 AntColony 的差值", fontsize=15, y=0.98)
+    fig.suptitle("AdaptiveSingleNextHop 相对 PaperImprovedAStar 与 AntColony 的差值", fontsize=15, y=0.98)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(OUT_DELTA_PNG, bbox_inches="tight")
     plt.close(fig)
@@ -169,16 +169,16 @@ def case_table(cases: pd.DataFrame, line: str) -> str:
 
 def build_report(cases: pd.DataFrame, summary: pd.DataFrame) -> None:
     report: list[str] = []
-    report.append("# 三条代表线路的单路径算法层对比报告")
+    report.append("# 三条代表线路的自适应引导算法层对比报告")
     report.append("")
-    report.append("本文只比较单路径算法层，不讨论全站引导策略。新增 `AntColony` 作为第三类基准算法，与 `PaperImprovedAStar` 和 `OurSinglePath` 使用同一批起点、同一初始人数和同一评价指标。")
+    report.append("本文只比较自适应引导算法层，不讨论全站引导策略。新增 `AntColony` 作为第三类基准算法，与 `PaperImprovedAStar` 和 `AdaptiveSingleNextHop` 使用同一批起点、同一初始人数和同一评价指标。")
     report.append("")
     report.append("## 1. 实验设计")
     report.append("")
     report.append("- 三条线路：L2、L7、L18。")
     report.append("- 每条线路 4 个典型起点，共 12 个案例。")
     report.append("- 每个案例放置 100 人。")
-    report.append("- 对比方法：`PaperImprovedAStar`、`AntColony`、`OurSinglePath`。")
+    report.append("- 对比方法：`PaperImprovedAStar`、`AntColony`、`AdaptiveSingleNextHop`。")
     report.append("- 指标：路径长度、疏散时间、排队时间、拥挤暴露、平均速度。")
     report.append("")
     report.append("### 总览图")
@@ -217,7 +217,7 @@ def build_report(cases: pd.DataFrame, summary: pd.DataFrame) -> None:
         report.append("")
         report.append("### 过程与结果")
         report.append(f"- {line_notes[line]}")
-        our_time = value(summary, line, "OurSinglePath", "mean_evacuation_time")
+        our_time = value(summary, line, "AdaptiveSingleNextHop", "mean_evacuation_time")
         paper_time = value(summary, line, "PaperImprovedAStar", "mean_evacuation_time")
         aco_time = value(summary, line, "AntColony", "mean_evacuation_time")
         report.append(f"- 平均疏散时间：Paper={fmt_num(paper_time)} s，ACO={fmt_num(aco_time)} s，Our={fmt_num(our_time)} s。")
@@ -231,7 +231,7 @@ def build_report(cases: pd.DataFrame, summary: pd.DataFrame) -> None:
     report.append("")
     report.append("- `PaperImprovedAStar` 代表严格论文规则下的密度约束 A*。")
     report.append("- `AntColony` 代表群智能搜索基准，用信息素迭代寻找当前低代价路径。")
-    report.append("- `OurSinglePath` 代表你的预测拥堵与下游负载感知算法。")
+    report.append("- `AdaptiveSingleNextHop` 代表你的预测拥堵与下游负载感知算法。")
     report.append("- 这一组结果用于算法层验证，后续再单独讨论全站引导和分流效果。")
     report.append("")
 

@@ -33,10 +33,11 @@ OUTPUT_REPORT = ROOT / "212_scenario1_pathfinder_validation_report.md"
 METHOD_COLORS = {
     "ACO": "#4E79A7",
     "PaperImprovedAStar": "#59A14F",
-    "OurSinglePath": "#E15759",
-    "OurNoSourceRelease": "#F28E2B",
-    "OurNoDownstreamRelease": "#B07AA1",
-    "OurNoExitPressure": "#9C755F",
+    "AdaptiveSingleNextHop": "#E15759",
+    "NoUpstreamLoadPenalty": "#F28E2B",
+    "NoDownstreamLoadPenalty": "#B07AA1",
+    "NoExitPressurePenalty": "#9C755F",
+    "NoPredictivePenalties": "#76B7B2",
 }
 
 SPATIAL_BOTTLENECK_MIN_START_S = 5.0
@@ -111,14 +112,15 @@ import single_path_routing as spr  # noqa: E402
 SCENARIO1_METHODS = [
     ("ACO", spr.ANT_COLONY_METHOD),
     ("PaperImprovedAStar", spr.PAPER_SINGLE_PATH_METHOD),
-    ("OurSinglePath", spr.OUR_SINGLE_PATH_METHOD),
+    ("AdaptiveSingleNextHop", spr.OUR_SINGLE_PATH_METHOD),
 ]
 
 ABLATION_METHODS = [
-    ("OurSinglePath", spr.OUR_SINGLE_PATH_METHOD),
-    ("OurNoSourceRelease", spr.OUR_NO_SOURCE_RELEASE_METHOD),
-    ("OurNoDownstreamRelease", spr.OUR_NO_DOWNSTREAM_RELEASE_METHOD),
-    ("OurNoExitPressure", spr.OUR_NO_EXIT_PRESSURE_METHOD),
+    ("AdaptiveSingleNextHop", spr.OUR_SINGLE_PATH_METHOD),
+    ("NoUpstreamLoadPenalty", spr.OUR_NO_SOURCE_RELEASE_METHOD),
+    ("NoDownstreamLoadPenalty", spr.OUR_NO_DOWNSTREAM_RELEASE_METHOD),
+    ("NoExitPressurePenalty", spr.OUR_NO_EXIT_PRESSURE_METHOD),
+    ("NoPredictivePenalties", spr.OUR_NO_PREDICTIVE_PENALTIES_METHOD),
 ]
 
 STATION_BASE_LOADS = {
@@ -827,7 +829,7 @@ def build_reroute_chart_rows(route_summary_rows):
 
 
 def build_ablation_chart_rows(ablation_rows):
-    full_row = next(row for row in ablation_rows if row["method_label"] == "OurSinglePath")
+    full_row = next(row for row in ablation_rows if row["method_label"] == "AdaptiveSingleNextHop")
     categories = [row["method_label"] for row in ablation_rows]
     series_map = {
         "Evacuation delta %": [],
@@ -877,7 +879,7 @@ def build_exit_rows(method_rows):
 
 def report_text(method_rows, route_summary_rows, mechanism_records, ablation_rows):
     method_by_label = {row["method_label"]: row for row in method_rows}
-    full = method_by_label["OurSinglePath"]
+    full = method_by_label["AdaptiveSingleNextHop"]
     paper = method_by_label["PaperImprovedAStar"]
     aco = method_by_label["ACO"]
     best_time = min(method_rows, key=lambda row: row["evacuation_time_s"])
@@ -890,8 +892,8 @@ def report_text(method_rows, route_summary_rows, mechanism_records, ablation_row
         "# Scenario 1 + Pathfinder Validation",
         "",
         "- Scope: system-level Scenario 1 (`常规突发`) with Pathfinder-derived waiting-zone geometry and distance data.",
-        "- Compared methods: `ACO`, `PaperImprovedAStar`, `OurSinglePath`.",
-        "- Ablations: remove `source release`, `downstream release`, and `exit pressure` from `OurSinglePath` one at a time.",
+        "- Compared methods: `ACO`, `PaperImprovedAStar`, `AdaptiveSingleNextHop`.",
+        "- Ablations: remove `source release`, `downstream release`, and `exit pressure`, plus a `NoPredictivePenalties` lower-bound variant.",
         "",
         "## What To Show In The Paper",
         "",
@@ -908,8 +910,8 @@ def report_text(method_rows, route_summary_rows, mechanism_records, ablation_row
         f"- Lowest moderate congestion exposure (`density > 3`): `{best_moderate_congestion['method_label']}` = `{best_moderate_congestion['moderate_congestion_exposure_time_person_s']:.2f}` person-s.",
         f"- Lowest severe congestion exposure (`density > 5`): `{best_severe_congestion['method_label']}` = `{best_severe_congestion['severe_congestion_exposure_time_person_s']:.2f}` person-s.",
         f"- Lowest peak density: `{best_peak_density['method_label']}` = `{best_peak_density['peak_density_p_per_m2']:.2f}` person/m^2.",
-        f"- `OurSinglePath` vs `ACO`: evacuation `{full['evacuation_time_s'] - aco['evacuation_time_s']:+.2f}s`, queueing `{full['queueing_time_person_s'] - aco['queueing_time_person_s']:+.2f}` person-s, moderate congestion `{full['moderate_congestion_exposure_time_person_s'] - aco['moderate_congestion_exposure_time_person_s']:+.2f}` person-s, severe congestion `{full['severe_congestion_exposure_time_person_s'] - aco['severe_congestion_exposure_time_person_s']:+.2f}` person-s.",
-        f"- `OurSinglePath` vs `PaperImprovedAStar`: evacuation `{full['evacuation_time_s'] - paper['evacuation_time_s']:+.2f}s`, queueing `{full['queueing_time_person_s'] - paper['queueing_time_person_s']:+.2f}` person-s, moderate congestion `{full['moderate_congestion_exposure_time_person_s'] - paper['moderate_congestion_exposure_time_person_s']:+.2f}` person-s, severe congestion `{full['severe_congestion_exposure_time_person_s'] - paper['severe_congestion_exposure_time_person_s']:+.2f}` person-s.",
+        f"- `AdaptiveSingleNextHop` vs `ACO`: evacuation `{full['evacuation_time_s'] - aco['evacuation_time_s']:+.2f}s`, queueing `{full['queueing_time_person_s'] - aco['queueing_time_person_s']:+.2f}` person-s, moderate congestion `{full['moderate_congestion_exposure_time_person_s'] - aco['moderate_congestion_exposure_time_person_s']:+.2f}` person-s, severe congestion `{full['severe_congestion_exposure_time_person_s'] - aco['severe_congestion_exposure_time_person_s']:+.2f}` person-s.",
+        f"- `AdaptiveSingleNextHop` vs `PaperImprovedAStar`: evacuation `{full['evacuation_time_s'] - paper['evacuation_time_s']:+.2f}s`, queueing `{full['queueing_time_person_s'] - paper['queueing_time_person_s']:+.2f}` person-s, moderate congestion `{full['moderate_congestion_exposure_time_person_s'] - paper['moderate_congestion_exposure_time_person_s']:+.2f}` person-s, severe congestion `{full['severe_congestion_exposure_time_person_s'] - paper['severe_congestion_exposure_time_person_s']:+.2f}` person-s.",
         "- `congestion_exposure_time_person_s` is now interpreted as the moderate (`density > 3`) exposure metric for backward compatibility.",
         "- Exit-approach effect should be read from the mechanism-attribution chart rather than the current `exit_usage` aggregate, because this bookkeeping path is not yet exposing usable totals in the system-level metrics.",
         "",
@@ -918,10 +920,10 @@ def report_text(method_rows, route_summary_rows, mechanism_records, ablation_row
     ]
 
     ablation_by_label = {row["method_label"]: row for row in ablation_rows}
-    for label in ["OurNoSourceRelease", "OurNoDownstreamRelease", "OurNoExitPressure"]:
+    for label in ["NoUpstreamLoadPenalty", "NoDownstreamLoadPenalty", "NoExitPressurePenalty", "NoPredictivePenalties"]:
         row = ablation_by_label[label]
         report_lines.append(
-            f"- `{label}` relative to `OurSinglePath`: evacuation `{row['evacuation_time_s'] - full['evacuation_time_s']:+.2f}s`, "
+            f"- `{label}` relative to `AdaptiveSingleNextHop`: evacuation `{row['evacuation_time_s'] - full['evacuation_time_s']:+.2f}s`, "
             f"queueing `{row['queueing_time_person_s'] - full['queueing_time_person_s']:+.2f}` person-s, "
             f"moderate congestion `{row['moderate_congestion_exposure_time_person_s'] - full['moderate_congestion_exposure_time_person_s']:+.2f}` person-s, "
             f"severe congestion `{row['severe_congestion_exposure_time_person_s'] - full['severe_congestion_exposure_time_person_s']:+.2f}` person-s."
@@ -946,7 +948,7 @@ def report_text(method_rows, route_summary_rows, mechanism_records, ablation_row
             "",
             "## Mechanism Interpretation",
             "",
-            f"- Divergence samples used for `PaperImprovedAStar` vs `OurSinglePath`: `{len(mechanism_records)}`.",
+            f"- Divergence samples used for `PaperImprovedAStar` vs `AdaptiveSingleNextHop`: `{len(mechanism_records)}`.",
             "- In the mechanism chart, compare `BaselineStylePath` and `OurChosenPath` under the same crowd state.",
             "- If the blue/red added-penalty blocks are clearly higher on the baseline-style path, that is direct evidence that your three added terms are not decorative: they are the reason the algorithm avoids seemingly short but hard-to-release paths.",
             "",
@@ -1029,7 +1031,7 @@ def main():
             source_nodes,
             baseline_label="ACO",
             baseline_method=spr.ANT_COLONY_METHOD,
-            guided_label="OurSinglePath",
+            guided_label="AdaptiveSingleNextHop",
             guided_method=spr.OUR_SINGLE_PATH_METHOD,
             target_time=event_horizon,
         )
@@ -1041,7 +1043,7 @@ def main():
             source_nodes,
             baseline_label="PaperImprovedAStar",
             baseline_method=spr.PAPER_SINGLE_PATH_METHOD,
-            guided_label="OurSinglePath",
+            guided_label="AdaptiveSingleNextHop",
             guided_method=spr.OUR_SINGLE_PATH_METHOD,
             target_time=event_horizon,
         )
@@ -1055,7 +1057,7 @@ def main():
         source_nodes,
         baseline_label="PaperImprovedAStar",
         baseline_method=spr.PAPER_SINGLE_PATH_METHOD,
-        guided_label="OurSinglePath",
+        guided_label="AdaptiveSingleNextHop",
         guided_method=spr.OUR_SINGLE_PATH_METHOD,
         target_time=event_horizon,
     )
@@ -1199,8 +1201,8 @@ def main():
 
     reroute_categories, reroute_series = build_reroute_chart_rows(route_summary_rows)
     reroute_colors = {
-        "OurSinglePath vs ACO": "#E15759",
-        "OurSinglePath vs PaperImprovedAStar": "#4E79A7",
+        "AdaptiveSingleNextHop vs ACO": "#E15759",
+        "AdaptiveSingleNextHop vs PaperImprovedAStar": "#4E79A7",
     }
     write_grouped_bar_chart_svg(OUTPUT_REROUTE_CHART, "Scenario 1 + Pathfinder: Reroute Summary", reroute_categories, reroute_series, reroute_colors, "Count")
 
@@ -1211,7 +1213,7 @@ def main():
         "Congestion delta %": "#59A14F",
         "Exit HHI delta %": "#B07AA1",
     }
-    write_grouped_bar_chart_svg(OUTPUT_ABLATION_CHART, "Ablation Sensitivity Relative To OurSinglePath", ablation_categories, ablation_series, ablation_colors, "Delta (%)")
+    write_grouped_bar_chart_svg(OUTPUT_ABLATION_CHART, "Ablation Sensitivity Relative To AdaptiveSingleNextHop", ablation_categories, ablation_series, ablation_colors, "Delta (%)")
 
     mechanism_values = average_component_rows(mechanism_records)
     mechanism_colors = {

@@ -1,5 +1,4 @@
 from single_path_routing import (
-    OUR_SINGLE_PATH_METHOD,
     enumerate_exit_paths,
     normalize_method,
     update_dynamic_weights,
@@ -9,6 +8,7 @@ from single_path_routing import (
 def enumerate_successor_paths(
     G,
     current_node,
+    method,
     shortest_dists,
     speed_fn,
     weight_key="sim_weight",
@@ -22,7 +22,8 @@ def enumerate_successor_paths(
     if current_node not in G.nodes:
         return []
 
-    update_dynamic_weights(G, OUR_SINGLE_PATH_METHOD, speed_fn, weight_key=weight_key)
+    method = normalize_method(method)
+    update_dynamic_weights(G, method, speed_fn, weight_key=weight_key)
     candidates = []
 
     for succ in G.successors(current_node):
@@ -44,7 +45,7 @@ def enumerate_successor_paths(
         downstream_paths = enumerate_exit_paths(
             G,
             succ,
-            OUR_SINGLE_PATH_METHOD,
+            method,
             shortest_dists,
             speed_fn,
             weight_key=weight_key,
@@ -73,6 +74,7 @@ def enumerate_successor_paths(
 def select_candidate_paths(
     G,
     current_node,
+    method,
     shortest_dists,
     speed_fn,
     score_ratio=1.15,
@@ -82,6 +84,7 @@ def select_candidate_paths(
     candidates = enumerate_successor_paths(
         G,
         current_node,
+        method,
         shortest_dists,
         speed_fn,
     )
@@ -174,10 +177,11 @@ def get_split_next_moves(
     min_split_share=0.05,
     max_paths=None,
 ):
-    normalize_method(method)
+    method = normalize_method(method)
     candidate_paths = select_candidate_paths(
         G,
         current_node,
+        method,
         shortest_dists,
         speed_fn,
         score_ratio=score_ratio,

@@ -1,0 +1,6 @@
+﻿scenario_mode,scenario_label,total_people,algorithm,guidance_mode,physical_line_area,physical_clearance_time_s,peak_node_people,peak_edge_people,peak_total_area_people,last_occupied_nodes,last_occupied_edges
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L2,320.5633516512857,1272.0,788.0,1281.0,,Gate_L2_N_West -> Exit_L2_2:1.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L7,312.2656033638011,706.0,557.0,717.0,,VN_L7toL2_Hall_Arrival -> Gate_L2_N_West:1.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L16,258.95730239023237,410.0,413.0,424.0,,Gate_L16_S2 -> Exit_L16_10:1.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,L18,251.79677872063328,643.0,644.0,654.0,,VN_L18_Exit12_Entrance -> Exit_L18_12:1.0
+1,mode1_regular_emergency,2187,AdaptiveSingleNextHop,PathfinderCompatible_TimeOriented,Maglev,103.46427605691927,16.0,21.0,21.0,,VN_Maglev_to_L2_Arrival -> Gate_L2_N_East:1.0

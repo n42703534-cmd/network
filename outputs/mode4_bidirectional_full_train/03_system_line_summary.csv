@@ -1,0 +1,16 @@
+﻿scenario_mode,scenario_label,total_people,method,line,clearance_time,core_clearance_time,transfer_clearance_time,congestion_exposure_time,moderate_congestion_exposure_time
+4,Mode 4 - Bidirectional full train,17905,ACO,L7,1206.5,1206.5,554.5,1454178.0,1454178.0
+4,Mode 4 - Bidirectional full train,17905,ACO,L2,2261.5,2261.5,1940.5,1972980.5,1972980.5
+4,Mode 4 - Bidirectional full train,17905,ACO,L16,1941.5,461.5,1941.5,196240.0,196240.0
+4,Mode 4 - Bidirectional full train,17905,ACO,L18,1941.0,1941.0,267.5,1730094.5,1730094.5
+4,Mode 4 - Bidirectional full train,17905,ACO,Maglev,820.5,820.5,,329668.0,329668.0
+4,Mode 4 - Bidirectional full train,17905,ImprovedAStar,L7,853.5,853.5,400.0,557193.0,557193.0
+4,Mode 4 - Bidirectional full train,17905,ImprovedAStar,L2,806.5,734.0,806.5,360382.0,360382.0
+4,Mode 4 - Bidirectional full train,17905,ImprovedAStar,L16,808.5,442.0,808.5,94822.5,94822.5
+4,Mode 4 - Bidirectional full train,17905,ImprovedAStar,L18,809.0,809.0,441.0,470202.5,470202.5
+4,Mode 4 - Bidirectional full train,17905,ImprovedAStar,Maglev,440.5,440.5,,119890.0,119890.0
+4,Mode 4 - Bidirectional full train,17905,AdaptiveSingleNextHop,L7,979.5,979.5,419.0,480653.5,480653.5
+4,Mode 4 - Bidirectional full train,17905,AdaptiveSingleNextHop,L2,736.5,736.5,720.0,349885.5,349885.5
+4,Mode 4 - Bidirectional full train,17905,AdaptiveSingleNextHop,L16,707.0,296.0,707.0,58760.0,58760.0
+4,Mode 4 - Bidirectional full train,17905,AdaptiveSingleNextHop,L18,724.0,724.0,267.5,380938.0,380938.0
+4,Mode 4 - Bidirectional full train,17905,AdaptiveSingleNextHop,Maglev,581.0,581.0,,127503.5,127503.5
