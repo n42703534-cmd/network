@@ -258,7 +258,7 @@ def exit_rows(scenario: dict, profile: dict, metrics: dict) -> list[dict]:
     return rows
 
 
-def line_rows(scenario: dict, total_people: int, profile: dict, metrics: dict) -> list[dict]:
+def source_line_rows(scenario: dict, total_people: int, profile: dict, metrics: dict) -> list[dict]:
     rows = []
     for line in network.ALL_LINE_IDS:
         rows.append(
@@ -268,13 +268,37 @@ def line_rows(scenario: dict, total_people: int, profile: dict, metrics: dict) -
                 "total_people": total_people,
                 "algorithm": ALGORITHM_LABEL,
                 "guidance_mode": profile["label"],
-                "line": line,
-                "clearance_time_s": metrics.get("clearance_times_by_line", {}).get(line),
-                "core_clearance_time_s": metrics.get("clearance_times_by_line_core", {}).get(line),
-                "transfer_clearance_time_s": metrics.get("clearance_times_by_line_transfer", {}).get(line),
+                "person_label_line": line,
+                "person_label_clearance_time_s": metrics.get("clearance_times_by_line", {}).get(line),
+                "person_label_core_clearance_time_s": metrics.get("clearance_times_by_line_core", {}).get(line),
+                "person_label_transfer_clearance_time_s": metrics.get("clearance_times_by_line_transfer", {}).get(line),
                 "queueing_time_person_s": metrics.get("queueing_time_by_line", {}).get(line, 0.0),
                 "moderate_congestion_exposure_person_s": metrics.get("congestion_exposure_by_line", {}).get(line, 0.0),
                 "severe_congestion_exposure_person_s": metrics.get("severe_congestion_exposure_by_line", {}).get(line, 0.0),
+            }
+        )
+    return rows
+
+
+def physical_line_rows(scenario: dict, total_people: int, profile: dict, metrics: dict) -> list[dict]:
+    rows = []
+    stats_by_line = metrics.get("physical_area_stats_by_line", {})
+    for line in network.ALL_LINE_IDS:
+        stats = stats_by_line.get(line, {})
+        rows.append(
+            {
+                "scenario_mode": scenario["mode"],
+                "scenario_label": scenario["label"],
+                "total_people": total_people,
+                "algorithm": ALGORITHM_LABEL,
+                "guidance_mode": profile["label"],
+                "physical_line_area": line,
+                "physical_clearance_time_s": stats.get("physical_clearance_time"),
+                "peak_node_people": stats.get("peak_node_people", 0.0),
+                "peak_edge_people": stats.get("peak_edge_people", 0.0),
+                "peak_total_area_people": stats.get("peak_total_people", 0.0),
+                "last_occupied_nodes": stats.get("last_occupied_nodes", ""),
+                "last_occupied_edges": stats.get("last_occupied_edges", ""),
             }
         )
     return rows
@@ -313,7 +337,7 @@ def bottleneck_rows(scenario: dict, profile: dict, metrics: dict, top_k: int = 2
     return rows
 
 
-def run_once(scenario: dict, profile: dict) -> tuple[dict, list[dict], list[dict], list[dict]]:
+def run_once(scenario: dict, profile: dict) -> tuple[dict, list[dict], list[dict], list[dict], list[dict]]:
     pop, total_people = build_pop(scenario["mode"])
     print()
     print(f"开始运行: {scenario['name']} | {ALGORITHM_LABEL} | {profile['name']} | 总人数 {total_people}")
@@ -330,7 +354,8 @@ def run_once(scenario: dict, profile: dict) -> tuple[dict, list[dict], list[dict
     return (
         row,
         exit_rows(scenario, profile, metrics),
-        line_rows(scenario, total_people, profile, metrics),
+        physical_line_rows(scenario, total_people, profile, metrics),
+        source_line_rows(scenario, total_people, profile, metrics),
         bottleneck_rows(scenario, profile, metrics),
     )
 
@@ -340,6 +365,7 @@ def write_combo_outputs(
     summary: dict,
     exits: list[dict],
     lines: list[dict],
+    source_lines: list[dict],
     bottlenecks: list[dict],
 ) -> None:
     write_csv(
@@ -380,10 +406,28 @@ def write_combo_outputs(
             "total_people",
             "algorithm",
             "guidance_mode",
-            "line",
-            "clearance_time_s",
-            "core_clearance_time_s",
-            "transfer_clearance_time_s",
+            "physical_line_area",
+            "physical_clearance_time_s",
+            "peak_node_people",
+            "peak_edge_people",
+            "peak_total_area_people",
+            "last_occupied_nodes",
+            "last_occupied_edges",
+        ],
+    )
+    write_csv(
+        run_dir / "source_line_metrics.csv",
+        source_lines,
+        [
+            "scenario_mode",
+            "scenario_label",
+            "total_people",
+            "algorithm",
+            "guidance_mode",
+            "person_label_line",
+            "person_label_clearance_time_s",
+            "person_label_core_clearance_time_s",
+            "person_label_transfer_clearance_time_s",
             "queueing_time_person_s",
             "moderate_congestion_exposure_person_s",
             "severe_congestion_exposure_person_s",
@@ -448,9 +492,9 @@ def main() -> None:
     written_dirs = []
     for scenario in selected_scenarios(scenario_choice):
         for profile in selected_profiles(profile_choice):
-            summary, exits, lines, bottlenecks = run_once(scenario, profile)
+            summary, exits, lines, source_lines, bottlenecks = run_once(scenario, profile)
             run_dir = combo_output_dir(scenario, profile)
-            write_combo_outputs(run_dir, summary, exits, lines, bottlenecks)
+            write_combo_outputs(run_dir, summary, exits, lines, source_lines, bottlenecks)
             written_dirs.append(run_dir)
             print(f"已保存: {run_dir}")
 

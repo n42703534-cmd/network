@@ -1059,6 +1059,122 @@ def _infer_node_line_ids_strict(node):
     return line_ids
 
 
+def _physical_line_ids_for_node(G, node):
+    explicit = G.nodes[node].get("physical_line_ids") if node in G.nodes else None
+    if explicit:
+        if isinstance(explicit, str):
+            return {explicit}
+        return set(explicit)
+    return _infer_node_line_ids_strict(node)
+
+
+def _physical_line_ids_for_edge(G, u, v):
+    line_ids = set()
+    if u in G.nodes:
+        line_ids.update(_physical_line_ids_for_node(G, u))
+    if v in G.nodes:
+        line_ids.update(_physical_line_ids_for_node(G, v))
+    return line_ids
+
+
+def _format_physical_occupancy_items(items, limit=6):
+    if not items:
+        return ""
+    ordered = sorted(items.items(), key=lambda item: item[1], reverse=True)
+    return "; ".join(f"{name}:{value:.1f}" for name, value in ordered[:limit])
+
+
+def _update_physical_line_occupancy_metrics(G, metrics, current_time):
+    cache = G.graph.setdefault("_physical_line_cache", {})
+    node_line_ids = cache.get("node_line_ids")
+    if node_line_ids is None:
+        node_line_ids = {node: _physical_line_ids_for_node(G, node) for node in G.nodes}
+        cache["node_line_ids"] = node_line_ids
+    edge_line_ids = cache.get("edge_line_ids")
+    if edge_line_ids is None:
+        edge_line_ids = {
+            _edge_key(u, v): _physical_line_ids_for_edge(G, u, v)
+            for u, v in G.edges
+        }
+        cache["edge_line_ids"] = edge_line_ids
+
+    stats_by_line = metrics.setdefault(
+        "physical_area_stats_by_line",
+        {
+            line: {
+                "physical_clearance_time": None,
+                "peak_node_people": 0.0,
+                "peak_edge_people": 0.0,
+                "peak_total_people": 0.0,
+                "last_occupied_nodes": "",
+                "last_occupied_edges": "",
+            }
+            for line in ALL_LINE_IDS
+        },
+    )
+
+    node_people_by_line = {line: 0.0 for line in ALL_LINE_IDS}
+    edge_people_by_line = {line: 0.0 for line in ALL_LINE_IDS}
+    node_items_by_line = {line: {} for line in ALL_LINE_IDS}
+    edge_items_by_line = {line: {} for line in ALL_LINE_IDS}
+    occupied_until_by_line = {line: None for line in ALL_LINE_IDS}
+
+    for node, data in G.nodes(data=True):
+        if data.get("type") == "exit":
+            continue
+        people = float(data.get("people", 0.0) or 0.0)
+        if people <= 1e-9:
+            continue
+        for line_id in node_line_ids.get(node, set()):
+            if line_id not in node_people_by_line:
+                continue
+            node_people_by_line[line_id] += people
+            node_items_by_line[line_id][node] = node_items_by_line[line_id].get(node, 0.0) + people
+            occupied_until_by_line[line_id] = max(
+                occupied_until_by_line[line_id] or current_time,
+                current_time,
+            )
+
+    for item in G.graph.get("_transit_queue", []):
+        depart_time = float(item.get("depart_time", 0.0) or 0.0)
+        arrive_time = float(item.get("arrive_time", 0.0) or 0.0)
+        if depart_time > current_time + 1e-9:
+            continue
+        if arrive_time <= current_time + 1e-9:
+            continue
+        amount = float(item.get("amount", 0.0) or 0.0)
+        if amount <= 1e-9:
+            continue
+        u = item.get("u")
+        v = item.get("v")
+        edge_name = _edge_key(u, v)
+        for line_id in edge_line_ids.get(edge_name, set()):
+            if line_id not in edge_people_by_line:
+                continue
+            edge_people_by_line[line_id] += amount
+            edge_items_by_line[line_id][edge_name] = edge_items_by_line[line_id].get(edge_name, 0.0) + amount
+            occupied_until_by_line[line_id] = max(
+                occupied_until_by_line[line_id] or arrive_time,
+                arrive_time,
+            )
+
+    for line_id, stats in stats_by_line.items():
+        node_people = node_people_by_line.get(line_id, 0.0)
+        edge_people = edge_people_by_line.get(line_id, 0.0)
+        total_people = node_people + edge_people
+        stats["peak_node_people"] = max(float(stats.get("peak_node_people", 0.0)), node_people)
+        stats["peak_edge_people"] = max(float(stats.get("peak_edge_people", 0.0)), edge_people)
+        stats["peak_total_people"] = max(float(stats.get("peak_total_people", 0.0)), total_people)
+        occupied_until = occupied_until_by_line.get(line_id)
+        if occupied_until is None:
+            continue
+        previous = stats.get("physical_clearance_time")
+        if previous is None or occupied_until >= float(previous) - 1e-9:
+            stats["physical_clearance_time"] = occupied_until
+            stats["last_occupied_nodes"] = _format_physical_occupancy_items(node_items_by_line[line_id])
+            stats["last_occupied_edges"] = _format_physical_occupancy_items(edge_items_by_line[line_id])
+
+
 def _get_node_series(metrics, node, key):
     node_series = metrics.get("node_series", {}).get(node, {})
     return (
@@ -4323,7 +4439,18 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
                 "congestion_seconds": 0.0,
             }
             for edge_key in monitored_edges
-        }
+        },
+        "physical_area_stats_by_line": {
+            line: {
+                "physical_clearance_time": None,
+                "peak_node_people": 0.0,
+                "peak_edge_people": 0.0,
+                "peak_total_people": 0.0,
+                "last_occupied_nodes": "",
+                "last_occupied_edges": "",
+            }
+            for line in ALL_LINE_IDS
+        },
     }
 
     while time < 6000:
@@ -4501,6 +4628,7 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
             metrics["time_series_queue"][monitor_node].append(G.nodes[monitor_node].get("people", 0))
 
         scheduled_moves = _schedule_moves_as_transit(G, moves)
+        _update_physical_line_occupancy_metrics(G, metrics, current_time)
         for item in scheduled_moves:
             amount = float(item["amount"])
             tt = max(float(item["travel_time"]), 0.001)
