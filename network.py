@@ -1,4 +1,4 @@
-﻿import networkx as nx
+import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import random
@@ -124,32 +124,76 @@ def _sorted_train_car_nodes(G, line_id, train_idx):
     return sorted(nodes, key=sort_key)
 
 
-TRADITIONAL_METHOD = spr.TRADITIONAL_METHOD
 PAPER_SINGLE_PATH_METHOD = spr.PAPER_SINGLE_PATH_METHOD
 OUR_SINGLE_PATH_METHOD = spr.OUR_SINGLE_PATH_METHOD
 OUR_SPLIT_GUIDANCE_METHOD = spr.OUR_SPLIT_GUIDANCE_METHOD
 ANT_COLONY_METHOD = spr.ANT_COLONY_METHOD
 METHOD_ALIASES = spr.METHOD_ALIASES
+OUR_SINGLE_PATH_FAMILY_METHODS = {
+    OUR_SINGLE_PATH_METHOD,
+    spr.OUR_NO_SOURCE_RELEASE_METHOD,
+    spr.OUR_NO_DOWNSTREAM_RELEASE_METHOD,
+    spr.OUR_NO_EXIT_PRESSURE_METHOD,
+    spr.OUR_NO_PREDICTIVE_PENALTIES_METHOD,
+}
 
 METHOD_DISPLAY_NAMES = {
-    TRADITIONAL_METHOD: "Traditional",
     PAPER_SINGLE_PATH_METHOD: "ImprovedAStar",
-    OUR_SINGLE_PATH_METHOD: "OurSinglePath",
+    OUR_SINGLE_PATH_METHOD: "AdaptiveSingleNextHop",
     OUR_SPLIT_GUIDANCE_METHOD: "Our Split Guidance",
     ANT_COLONY_METHOD: "ACO",
+    spr.OUR_NO_SOURCE_RELEASE_METHOD: "NoUpstreamLoadPenalty",
+    spr.OUR_NO_DOWNSTREAM_RELEASE_METHOD: "NoDownstreamLoadPenalty",
+    spr.OUR_NO_EXIT_PRESSURE_METHOD: "NoExitPressurePenalty",
+    spr.OUR_NO_PREDICTIVE_PENALTIES_METHOD: "NoPredictivePenalties",
 }
 
 METHOD_OUTPUT_TAGS = {
-    TRADITIONAL_METHOD: "traditional",
     PAPER_SINGLE_PATH_METHOD: "improved_astar",
-    OUR_SINGLE_PATH_METHOD: "our_single_path",
+    OUR_SINGLE_PATH_METHOD: "adaptive_single_next_hop",
     OUR_SPLIT_GUIDANCE_METHOD: "our_split_guidance",
     ANT_COLONY_METHOD: "aco",
+    spr.OUR_NO_SOURCE_RELEASE_METHOD: "no_upstream_load_penalty",
+    spr.OUR_NO_DOWNSTREAM_RELEASE_METHOD: "no_downstream_load_penalty",
+    spr.OUR_NO_EXIT_PRESSURE_METHOD: "no_exit_pressure_penalty",
+    spr.OUR_NO_PREDICTIVE_PENALTIES_METHOD: "no_predictive_penalties",
 }
 
-OUR_GUIDANCE_MIN_HOLD_SECONDS = 4.0
-OUR_GUIDANCE_SWITCH_MARGIN = 0.08
+OUTPUT_DIR = None
+
+
+def _output_path(filename):
+    if not filename or os.path.isabs(str(filename)):
+        return filename
+    if OUTPUT_DIR:
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        return os.path.join(OUTPUT_DIR, str(filename))
+    return filename
+
+
+SYSTEM_MODE_OUTPUTS = {
+    1: ("mode1_regular_emergency", "Mode 1 - Regular emergency"),
+    2: ("mode2_upbound_full_train", "Mode 2 - Upbound full train"),
+    3: ("mode3_downbound_full_train", "Mode 3 - Downbound full train"),
+    4: ("mode4_bidirectional_full_train", "Mode 4 - Bidirectional full train"),
+}
+
+
+def _set_system_mode_output_dir(mode):
+    global OUTPUT_DIR
+    slug, label = SYSTEM_MODE_OUTPUTS.get(mode, (f"mode{mode}", f"Mode {mode}"))
+    OUTPUT_DIR = os.path.abspath(os.path.join(os.getcwd(), "outputs", slug))
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    return OUTPUT_DIR, label
+
+OUR_GUIDANCE_MIN_HOLD_SECONDS = 2.0
+OUR_GUIDANCE_SWITCH_MARGIN = 0.03
 OUR_GUIDANCE_FORCE_SWITCH_MARGIN = 0.20
+FACILITY_BASE_SPEED_M_PER_S = {
+    "flat": 1.40,
+    "stair": 0.75,
+    "escalator": 0.50,
+}
 
 SINGLE_PATH_CASE_POPULATION = 100.0
 SINGLE_PATH_CASE_SPECS = [
@@ -226,7 +270,10 @@ def _select_key_facility_nodes(G_base, method_metrics, top_k=8):
         for _, metrics in method_metrics:
             stat = metrics.get("node_stats", {}).get(node, {})
             total_queue_seconds += float(stat.get("queue_seconds", 0.0))
-            max_peak_density = max(max_peak_density, float(stat.get("peak_density", 0.0)))
+            max_peak_density = max(
+                max_peak_density,
+                float(stat.get("peak_congestion_index", stat.get("peak_density", 0.0))),
+            )
         if total_queue_seconds <= 0.0 and max_peak_density <= 0.0:
             continue
         candidates.append((total_queue_seconds, max_peak_density, node))
@@ -262,8 +309,6 @@ def _path_total_cost(G, path, method, weight_key="sim_weight"):
             return float("inf")
         total += edge_cost
 
-    if _routing_base_method(method) == OUR_SINGLE_PATH_METHOD:
-        total += 0.20 * _exit_approach_pressure(G, path[-1])
     return total
 
 
@@ -306,11 +351,21 @@ def get_split_next_moves(
     )
 
 
-def _choose_our_single_path_with_inertia(G, current_node, shortest_dists):
+def _has_parallel_service_successors(G, current_node, min_count=2):
+    service_successors = [
+        succ
+        for succ in G.successors(current_node)
+        if spr.is_capacity_service_node(G, succ)
+    ]
+    return len(service_successors) >= min_count
+
+
+def _choose_our_single_path_with_inertia(G, current_node, shortest_dists, method):
+    method = _normalize_method(method)
     candidates = spr.enumerate_exit_paths(
         G,
         current_node,
-        OUR_SINGLE_PATH_METHOD,
+        method,
         shortest_dists,
         fruin_speed,
     )
@@ -327,14 +382,27 @@ def _choose_our_single_path_with_inertia(G, current_node, shortest_dists):
 
     if prev and _our_path_is_usable(G, current_node, prev.get("path")):
         prev_path = prev["path"]
-        prev_cost = _path_total_cost(G, prev_path, OUR_SINGLE_PATH_METHOD)
+        prev_cost = _path_total_cost(G, prev_path, method)
         best_cost = float(best["cost"])
         prev_next = prev.get("next_hop")
         best_next = best.get("next_hop")
         held_for = sim_time - float(prev.get("switched_at", sim_time))
+        selected_cost = float(prev.get("selected_cost", prev_cost))
+
+        # Degradation trigger: if the current path cost has grown >50% since
+        # selection and a better alternative exists (>2% improvement), force
+        # a switch regardless of hold time or normal switch margin.
+        degraded = False
+        if selected_cost > 0 and math.isfinite(prev_cost):
+            cost_growth = prev_cost / selected_cost
+            if cost_growth > 1.5 and best_cost < prev_cost * 0.98:
+                degraded = True
 
         if best_next == prev_next:
             switched_at = float(prev.get("switched_at", sim_time))
+        elif degraded:
+            chosen = best
+            switched_at = sim_time
         elif math.isfinite(prev_cost):
             clearly_better = best_cost <= prev_cost * (1.0 - OUR_GUIDANCE_SWITCH_MARGIN)
             force_switch = best_cost <= prev_cost * (1.0 - OUR_GUIDANCE_FORCE_SWITCH_MARGIN)
@@ -353,23 +421,93 @@ def _choose_our_single_path_with_inertia(G, current_node, shortest_dists):
         "path": chosen["path"],
         "next_hop": chosen["next_hop"],
         "switched_at": switched_at,
+        "selected_cost": float(chosen["cost"]),
     }
     return chosen["path"]
 
 
+def _clear_guidance_reservations(G):
+    reserved_nodes = G.graph.pop("_guidance_reserved_nodes", set())
+    for node in reserved_nodes:
+        if node in G.nodes:
+            G.nodes[node].pop("_guidance_reserved_inflow", None)
+
+
+def _reserve_guidance_path(G, path, amount):
+    if not path or amount <= 0:
+        return
+
+    reserved_nodes = G.graph.setdefault("_guidance_reserved_nodes", set())
+    for idx, node in enumerate(path[1:], start=1):
+        if node not in G.nodes or G.nodes[node].get("type") == "exit":
+            continue
+        if idx > 1 and not spr.is_capacity_service_node(G, node):
+            continue
+        G.nodes[node]["_guidance_reserved_inflow"] = (
+            float(G.nodes[node].get("_guidance_reserved_inflow", 0.0)) + float(amount)
+        )
+        reserved_nodes.add(node)
+
+
 import random
 
-def standard_aco_pathfinder(G, source_node, shortest_dists, fruin_speed_func, alpha=1.0, beta=2.0, rho=0.1, Q=100.0,
-                            num_ants=5, max_iter=10):
+def standard_aco_pathfinder(
+    G,
+    source_node,
+    shortest_dists,
+    fruin_speed_func,
+    alpha=None,
+    beta=None,
+    rho=None,
+    Q=None,
+    num_ants=None,
+    max_iter=None,
+):
     """标准的蚁群算法路径规划"""
-    if "_aco_pheromones" not in G.graph:
-        G.graph["_aco_pheromones"] = {edge: 1.0 for edge in G.edges()}
-    pheromones = G.graph["_aco_pheromones"]
+    alpha = spr.ACO_ALPHA if alpha is None else alpha
+    beta = spr.ACO_BETA if beta is None else beta
+    rho = spr.ACO_EVAPORATION if rho is None else rho
+    Q = spr.ACO_DEPOSIT_Q if Q is None else Q
+    num_ants = spr.ACO_ANT_COUNT if num_ants is None else num_ants
+    max_iter = spr.ACO_ITERATIONS if max_iter is None else max_iter
+    # Traditional ACO baseline: pheromones are local to this planning run.
+    # Do not carry pheromones across simulation time steps or source nodes.
+    pheromones = {edge: 1.0 for edge in G.edges()}
 
     best_path = None
     best_cost = float('inf')
     exits = {n for n, d in G.nodes(data=True) if d.get("type") == "exit"}
     if not exits: return [source_node]
+    reachable_exits = [
+        ext for ext in exits
+        if ext == source_node or math.isfinite(float(shortest_dists.get(source_node, {}).get(ext, float("inf"))))
+    ]
+    if not reachable_exits:
+        return [source_node]
+
+    def can_reach_exit(node):
+        if node in exits:
+            return True
+        node_dists = shortest_dists.get(node, {})
+        return any(math.isfinite(float(node_dists.get(ext, float("inf")))) for ext in reachable_exits)
+
+    def aco_edge_cost(u, v):
+        # Basic ACO in Huang et al. uses distance as the heuristic basis:
+        # eta_ij is the inverse of edge distance, and pheromone deposit is
+        # inversely proportional to the full path length.
+        return max(float(G[u][v].get("length", 0.0)), 0.001)
+
+    rng = random.Random(spr._stable_seed("network_aco_traditional", source_node, len(G.edges())))
+
+    def realized_path_cost(path):
+        if not path or len(path) <= 1:
+            return float("inf")
+        total = 0.0
+        for u, v in zip(path, path[1:]):
+            if not G.has_edge(u, v):
+                return float("inf")
+            total += aco_edge_cost(u, v)
+        return total
 
     for iteration in range(max_iter):
         ant_paths = []
@@ -380,17 +518,16 @@ def standard_aco_pathfinder(G, source_node, shortest_dists, fruin_speed_func, al
             path_cost = 0.0
 
             while current not in exits:
-                neighbors = [v for v in G.successors(current) if v not in visited]
+                neighbors = [
+                    v for v in G.successors(current)
+                    if v not in visited and can_reach_exit(v)
+                ]
                 if not neighbors: break
 
                 probabilities = []
                 for v in neighbors:
-                    length = float(G[current][v].get("length", 1.0))
-                    density = float(G.nodes[current].get("people", 0)) / max(float(G.nodes[current].get("area", 1.0)),
-                                                                             0.001)
-                    speed = fruin_speed_func(density)
-                    edge_cost = length / speed if speed > 0 else float('inf')
-                    eta = 1.0 / max(edge_cost, 0.01)
+                    edge_cost = aco_edge_cost(current, v)
+                    eta = 1.0 / max(edge_cost, 0.001)
                     tau = pheromones.get((current, v), 1.0)
                     prob = (tau ** alpha) * (eta ** beta)
                     probabilities.append((v, prob, edge_cost))
@@ -398,7 +535,7 @@ def standard_aco_pathfinder(G, source_node, shortest_dists, fruin_speed_func, al
                 total_prob = sum(p[1] for p in probabilities)
                 if total_prob <= 0: break
 
-                rand_val = random.uniform(0, total_prob)
+                rand_val = rng.uniform(0, total_prob)
                 cumulative = 0.0
                 chosen_next, chosen_cost = neighbors[0], probabilities[0][2]
 
@@ -428,7 +565,17 @@ def standard_aco_pathfinder(G, source_node, shortest_dists, fruin_speed_func, al
                 edge = (p[i], p[i + 1])
                 if edge in pheromones: pheromones[edge] += delta_tau
 
-    return best_path if best_path else [source_node]
+    if best_path:
+        return best_path
+
+    try:
+        target = min(
+            reachable_exits,
+            key=lambda ext: float(shortest_dists.get(source_node, {}).get(ext, float("inf"))),
+        )
+        return nx.shortest_path(G, source_node, target, weight="length")
+    except (nx.NetworkXNoPath, ValueError, KeyError):
+        return [source_node]
 
 
 def get_step_moves(G, method, shortest_dists):
@@ -440,26 +587,37 @@ def get_step_moves(G, method, shortest_dists):
 
     moves = []
 
-    # 封印解除：这段被注释掉，不再允许用 fixed_next 直接查表跳过计算
-    # fixed_next = G.graph.get("_fixed_next_by_node")
-    # if fixed_next: ...
+    fixed_next = G.graph.get("_fixed_next_by_node")
+    if fixed_next:
+        for u in active_nodes:
+            v = fixed_next.get(u)
+            if not v or not G.has_edge(u, v):
+                continue
+            flow = min(float(G.nodes[u]["people"]), float(G[u][v]["capacity"]) * DELTA_T)
+            if flow > 0:
+                moves.append((u, v, flow))
+        return _integerize_moves(G, moves)
 
     if method == PAPER_SINGLE_PATH_METHOD:
         return _get_paper_step_moves(G, active_nodes)
 
-    if method in {TRADITIONAL_METHOD, PAPER_SINGLE_PATH_METHOD, ANT_COLONY_METHOD, OUR_SINGLE_PATH_METHOD}:
-        if method == OUR_SINGLE_PATH_METHOD:
+    if method in OUR_SINGLE_PATH_FAMILY_METHODS | {ANT_COLONY_METHOD}:
+        if method in OUR_SINGLE_PATH_FAMILY_METHODS:
+            _clear_guidance_reservations(G)
             guidance_state = G.graph.setdefault("_our_guidance_state", {})
             for node in list(guidance_state):
                 if node not in active_nodes:
                     guidance_state.pop(node, None)
+        aco_path_cache = G.graph.setdefault("_aco_path_cache", {}) if method == ANT_COLONY_METHOD else None
 
         for u in active_nodes:
-            # 核心修改：如果是 ACO，调用我们刚刚写好的真正动态 ACO 函数
-            if method == OUR_SINGLE_PATH_METHOD:
-                path = _choose_our_single_path_with_inertia(G, u, shortest_dists)
+            if method in OUR_SINGLE_PATH_FAMILY_METHODS:
+                path = _choose_our_single_path_with_inertia(G, u, shortest_dists, method)
             elif method == ANT_COLONY_METHOD:
-                path = standard_aco_pathfinder(G, u, shortest_dists, fruin_speed)
+                path = aco_path_cache.get(u)
+                if not path or len(path) <= 1 or not G.has_edge(path[0], path[1]):
+                    path = standard_aco_pathfinder(G, u, shortest_dists, fruin_speed)
+                    aco_path_cache[u] = path
             else:
                 path = get_best_path_to_exit(G, u, method, shortest_dists)
 
@@ -468,7 +626,13 @@ def get_step_moves(G, method, shortest_dists):
                 flow = min(float(G.nodes[u]["people"]), float(G[u][v]["capacity"]) * DELTA_T)
                 if flow > 0:
                     moves.append((u, v, flow))
-        return _integerize_moves(G, moves)
+                    if method in OUR_SINGLE_PATH_FAMILY_METHODS:
+                        _reserve_guidance_path(G, path, flow)
+        try:
+            return _integerize_moves(G, moves)
+        finally:
+            if method in OUR_SINGLE_PATH_FAMILY_METHODS:
+                _clear_guidance_reservations(G)
 
     update_dynamic_weights(G, method)
     for u in active_nodes:
@@ -478,9 +642,17 @@ def get_step_moves(G, method, shortest_dists):
 
 
 def _node_density(G, node):
-    people = float(G.nodes[node].get("people", 0.0))
-    area = max(float(G.nodes[node].get("area", 1.0)), 0.001)
-    return people / area
+    return spr.spatial_effective_density(G, node)
+
+
+def _node_congestion_index(G, node):
+    return spr.node_congestion_index(G, node)
+
+
+def _congestion_thresholds_for_measure(measure_type):
+    if measure_type == "capacity_ratio":
+        return spr.SERVICE_MODERATE_LOAD_RATIO, spr.SERVICE_SEVERE_LOAD_RATIO
+    return MODERATE_CONGESTION_DENSITY_THRESHOLD, SEVERE_CONGESTION_DENSITY_THRESHOLD
 
 
 def _paper_congested_nodes(G):
@@ -488,7 +660,9 @@ def _paper_congested_nodes(G):
     for node, data in G.nodes(data=True):
         if data.get("type") == "exit":
             continue
-        if _node_density(G, node) > spr.PAPER_DENSITY_CUTOFF:
+        congestion_value, measure_type = _node_congestion_index(G, node)
+        moderate_threshold, _ = _congestion_thresholds_for_measure(measure_type)
+        if congestion_value > moderate_threshold:
             blocked.add(node)
     return blocked
 
@@ -504,7 +678,21 @@ def _paper_build_routing_graph(G, current_node, blocked_nodes):
 
 def _paper_plan_path(G, current_node, blocked_nodes):
     routing_graph = _paper_build_routing_graph(G, current_node, blocked_nodes)
-    local_shortest = dict(nx.all_pairs_dijkstra_path_length(routing_graph, weight="length"))
+    blocked_signature = tuple(sorted(blocked_nodes))
+    # Length-only Dijkstra heuristics depend on the removed-node set, not on
+    # transient crowd densities, so cache them within one congestion state.
+    shortest_cache = G.graph.setdefault("_paper_shortest_by_blocked_signature", {})
+    shortest_key = (blocked_signature, current_node if current_node in blocked_nodes else None)
+    if routing_graph is G:
+        local_shortest = G.graph.get("_paper_full_shortest")
+        if local_shortest is None:
+            local_shortest = dict(nx.all_pairs_dijkstra_path_length(G, weight="length"))
+            G.graph["_paper_full_shortest"] = local_shortest
+    else:
+        local_shortest = shortest_cache.get(shortest_key)
+        if local_shortest is None:
+            local_shortest = dict(nx.all_pairs_dijkstra_path_length(routing_graph, weight="length"))
+            shortest_cache[shortest_key] = local_shortest
     path = spr.get_best_path_to_exit(
         routing_graph,
         current_node,
@@ -515,7 +703,10 @@ def _paper_plan_path(G, current_node, blocked_nodes):
     if path or routing_graph is G:
         return path
 
-    fallback_shortest = dict(nx.all_pairs_dijkstra_path_length(G, weight="length"))
+    fallback_shortest = G.graph.get("_paper_full_shortest")
+    if fallback_shortest is None:
+        fallback_shortest = dict(nx.all_pairs_dijkstra_path_length(G, weight="length"))
+        G.graph["_paper_full_shortest"] = fallback_shortest
     return spr.get_best_path_to_exit(
         G,
         current_node,
@@ -546,6 +737,7 @@ def _get_paper_step_moves(G, active_nodes):
     if cached_signature != blocked_signature:
         paper_paths.clear()
         paper_next.clear()
+        G.graph.setdefault("_paper_shortest_by_blocked_signature", {}).clear()
         G.graph["_paper_blocked_signature"] = blocked_signature
 
     for u in active_nodes:
@@ -578,15 +770,64 @@ def _ensure_transit_state(G):
 def _edge_travel_time(G, u, v):
     data = G[u][v]
     length = max(float(data.get("length", 0.0)), 0.0)
-    speed = 1.4
+    density = _edge_density(G, u, v)
+
+    u_type = str(G.nodes[u].get("type", "")).lower()
+    v_type = str(G.nodes[v].get("type", "")).lower()
+    edge_type = str(data.get("edge_type", "")).lower()
+
+    flat_speed = _density_adjusted_speed(FACILITY_BASE_SPEED_M_PER_S["flat"], density)
+
+    if edge_type in {"platform_to_vertical", "platform_zone_to_vertical"}:
+        line_ids = sorted(_infer_node_line_ids_strict(u) | _infer_node_line_ids_strict(v))
+        vertical_length = 0.0
+        if line_ids:
+            line_id = line_ids[0]
+            if line_id in STATION_LEVELS:
+                vertical_length = min(2.0 * get_delta_h(line_id), length)
+        horizontal_length = max(length - vertical_length, 0.0)
+        if "stair" in v_type:
+            vertical_speed = FACILITY_BASE_SPEED_M_PER_S["stair"]
+        elif "escalator" in v_type:
+            vertical_speed = FACILITY_BASE_SPEED_M_PER_S["escalator"]
+        else:
+            vertical_speed = FACILITY_BASE_SPEED_M_PER_S["flat"]
+        vertical_speed = _density_adjusted_speed(vertical_speed, density)
+        travel_time = horizontal_length / flat_speed + vertical_length / max(vertical_speed, 0.001)
+        return max(1.0, travel_time)
+
+    flat_edge_types = {
+        "vertical_to_gate",
+        "vertical_to_virtual",
+        "gate_to_virtual",
+        "virtual_to_gate",
+        "gate_to_exit",
+        "gate_to_vertical",
+        "hall_to_gate",
+        "transfer_to_gate",
+        "exit_channel",
+    }
+    if edge_type in flat_edge_types:
+        return max(1.0, length / flat_speed)
+
+    # Realized propagation speed depends on true facility traversal. Edges that
+    # merely start/end at a facility but represent a hall corridor are handled above.
+    if "stair" in u_type or "stair" in v_type or "stair" in edge_type:
+        speed = FACILITY_BASE_SPEED_M_PER_S["stair"]
+    elif "escalator" in u_type or "escalator" in v_type or "escalator" in edge_type:
+        speed = FACILITY_BASE_SPEED_M_PER_S["escalator"]
+    else:
+        speed = FACILITY_BASE_SPEED_M_PER_S["flat"]
+    speed = _density_adjusted_speed(speed, density)
+
     travel_time = length / speed if speed > 0 else length
     return max(1.0, travel_time)
-
 
 def _process_transit_arrivals(
     G,
     current_time,
     evacuated_by_line=None,
+    evacuated_by_source_group=None,
     exit_usage_dict=None,
     exit_usage_by_source_group=None,
 ):
@@ -610,17 +851,33 @@ def _process_transit_arrivals(
         source_group_shares = item.get("source_group_shares", {})
         dest_type = G.nodes[dest].get("type", "")
 
-        for line_id, flow in line_shares.items():
-            if flow <= 0:
-                continue
-
-            G.nodes[dest]["people_dict"][line_id] += flow
-
-            if dest_type == "exit":
+        if dest_type == "exit":
+            for line_id, flow in line_shares.items():
+                if flow <= 0:
+                    continue
                 if evacuated_by_line is not None:
                     evacuated_by_line[line_id] += flow
                 if exit_usage_dict is not None and dest in exit_usage_dict:
                     exit_usage_dict[dest][line_id] += flow
+
+            if exit_usage_by_source_group is not None and dest in exit_usage_by_source_group:
+                for source_group_id, flow in source_group_shares.items():
+                    if flow > 0:
+                        exit_usage_by_source_group[dest][source_group_id] = (
+                            exit_usage_by_source_group[dest].get(source_group_id, 0) + flow
+                        )
+                        if evacuated_by_source_group is not None:
+                            evacuated_by_source_group[source_group_id] = (
+                                evacuated_by_source_group.get(source_group_id, 0.0) + flow
+                            )
+
+            evac_total += amount
+            continue
+
+        for line_id, flow in line_shares.items():
+            if flow <= 0:
+                continue
+            G.nodes[dest]["people_dict"][line_id] += flow
 
         for source_group_id, flow in source_group_shares.items():
             if flow <= 0:
@@ -629,15 +886,8 @@ def _process_transit_arrivals(
             G.nodes[dest]["source_group_dict"][source_group_id] = (
                 G.nodes[dest]["source_group_dict"].get(source_group_id, 0) + flow
             )
-            if dest_type == "exit" and exit_usage_by_source_group is not None and dest in exit_usage_by_source_group:
-                exit_usage_by_source_group[dest][source_group_id] = (
-                    exit_usage_by_source_group[dest].get(source_group_id, 0) + flow
-                )
 
         G.nodes[dest]["people"] += amount
-
-        if dest_type == "exit":
-            evac_total += amount
 
     G.graph["_transit_queue"] = remaining
     return evac_total
@@ -890,6 +1140,74 @@ def _edge_width_proxy(G, u, v):
     return 1.0
 
 
+def _edge_effective_area(G, u, v):
+    data = G[u][v]
+    explicit_area = float(data.get("edge_area", 0.0) or 0.0)
+    if explicit_area > 0:
+        return max(explicit_area, 0.1)
+    length = max(float(data.get("length", 0.0)), 0.5)
+    width = max(_edge_width_proxy(G, u, v), 0.1)
+    return max(length * width, 0.1)
+
+
+def _edge_active_passengers(G, u, v, current_time=None):
+    if current_time is None:
+        current_time = float(G.graph.get("_sim_time", 0.0))
+    total = 0.0
+    for item in G.graph.get("_transit_queue", []):
+        if item.get("u") != u or item.get("v") != v:
+            continue
+        if item.get("depart_time", 0.0) > current_time + 1e-9:
+            continue
+        if item.get("arrive_time", 0.0) <= current_time + 1e-9:
+            continue
+        total += float(item.get("amount", 0.0))
+    return total
+
+
+def _edge_density(G, u, v, current_time=None):
+    edge_type = str(G[u][v].get("edge_type", "")).lower()
+    if edge_type in EDGE_DENSITY_EXEMPT_TYPES:
+        return 0.0
+    if current_time is None:
+        cached_density = float(G[u][v].get("runtime_density", 0.0) or 0.0)
+        if cached_density > 0:
+            return cached_density
+    return _edge_active_passengers(G, u, v, current_time) / _edge_effective_area(G, u, v)
+
+
+def _density_adjusted_speed(speed_cap, density):
+    speed_cap = max(float(speed_cap), 0.1)
+    if density <= 0:
+        return speed_cap
+    return max(min(speed_cap, fruin_speed(density)), 0.1)
+
+
+def _refresh_edge_runtime_densities(G, current_time=None):
+    if current_time is None:
+        current_time = float(G.graph.get("_sim_time", 0.0))
+    for _, _, data in G.edges(data=True):
+        data["runtime_passengers"] = 0.0
+        data["runtime_density"] = 0.0
+
+    for item in G.graph.get("_transit_queue", []):
+        u = item.get("u")
+        v = item.get("v")
+        if u not in G.nodes or v not in G.nodes or not G.has_edge(u, v):
+            continue
+        if item.get("depart_time", 0.0) > current_time + 1e-9:
+            continue
+        if item.get("arrive_time", 0.0) <= current_time + 1e-9:
+            continue
+        G[u][v]["runtime_passengers"] += float(item.get("amount", 0.0))
+
+    for u, v, data in G.edges(data=True):
+        edge_type = str(data.get("edge_type", "")).lower()
+        if edge_type in EDGE_DENSITY_EXEMPT_TYPES:
+            continue
+        data["runtime_density"] = float(data.get("runtime_passengers", 0.0)) / _edge_effective_area(G, u, v)
+
+
 def _select_top_edges(edge_stats, top_k=12):
     rows = []
     for edge_key, stat in edge_stats.items():
@@ -1037,7 +1355,7 @@ def _capture_edge_snapshot(G, current_time, monitored_edges):
     transit_queue = G.graph.get("_transit_queue", [])
     monitored = set(monitored_edges)
     snapshot = {
-        edge_key: {"passengers": 0.0, "speed_sum": 0.0}
+        edge_key: {"passengers": 0.0, "speed_sum": 0.0, "line_shares": {line: 0.0 for line in ALL_LINE_IDS}}
         for edge_key in monitored
     }
 
@@ -1057,12 +1375,16 @@ def _capture_edge_snapshot(G, current_time, monitored_edges):
         if amount <= 0:
             continue
 
-        travel_time = max(float(item.get("travel_time", _edge_travel_time(G, u, v))), 0.001)
+        travel_time = float(item["travel_time"]) if "travel_time" in item else _edge_travel_time(G, u, v)
+        travel_time = max(travel_time, 0.001)
         length = max(float(G[u][v].get("length", 0.0)), 0.0)
         speed = length / travel_time if length > 0 else spr.PAPER_FREE_SPEED
 
         snapshot[edge_key]["passengers"] += amount
         snapshot[edge_key]["speed_sum"] += amount * speed
+        for line_id, flow in item.get("line_shares", {}).items():
+            if line_id in snapshot[edge_key]["line_shares"]:
+                snapshot[edge_key]["line_shares"][line_id] += float(flow)
 
     return snapshot
 
@@ -1300,8 +1622,11 @@ def _aggregate_line_node_series(G, metrics, line_id, key, normalize_by_area=Fals
         if values.size == 0:
             continue
         if normalize_by_area:
-            area = max(float(G.nodes[node].get("area", 1.0)), 0.001)
-            values = values / area
+            if spr.is_capacity_service_node(G, node):
+                denom = spr.node_service_capacity(G, node) * spr.SERVICE_QUEUE_HORIZON_SECONDS
+            else:
+                denom = max(float(G.nodes[node].get("area", 1.0)), 0.001)
+            values = values / max(denom, 0.001)
         stack.append(values[:ref_times.size])
 
     if not stack:
@@ -1339,10 +1664,12 @@ plt.rcParams['axes.unicode_minus'] = False
 
 MODE = "EVACUATION"
 DELTA_T = 0.5
+PATHFINDER_CAPACITY_CALIBRATION_FACTOR = 1.0
 
 ALL_LINE_IDS = ["L2", "L7", "L16", "L18", "Maglev"]
 MODERATE_CONGESTION_DENSITY_THRESHOLD = 3.0
 SEVERE_CONGESTION_DENSITY_THRESHOLD = 5.0
+EDGE_DENSITY_EXEMPT_TYPES = {"car_to_door", "train_door"}
 
 SOURCE_GROUP_SUFFIXES = {
     "train_1": "train1",
@@ -1948,12 +2275,14 @@ def _ensure_hall_staging_nodes(G):
 
                 center_x = float(sum(xs) / max(len(xs), 1))
                 center_y = float(sum(ys) / max(len(ys), 1)) + 6.0
+                staging_area = float(cfg.get("manual_area", 80.0))
                 G.add_node(
                     node_name,
                     type="virtual",
                     people=0,
                     capacity=max(cap_sum, 1.0),
-                    manual_area=float(cfg.get("manual_area", 80.0)),
+                    area=staging_area,
+                    manual_area=staging_area,
                     pos=(center_x, center_y),
                     line_id=line_id,
                 )
@@ -1963,7 +2292,10 @@ def _ensure_hall_staging_nodes(G):
                 if G.has_edge(node_name, target):
                     continue
                 target_pos = G.nodes[target].get("pos", source_pos)
-                length = max(float(np.linalg.norm(np.array(target_pos) - np.array(source_pos))), 4.0)
+                raw_dist = float(np.linalg.norm(np.array(target_pos) - np.array(source_pos)))
+                # L2 hall staging edges were ~100× too long (CAD coords not scaled to meters),
+                # making gate-congestion penalties negligible relative to distance cost.
+                length = max(raw_dist * 0.01, 4.0) if line_id == "L2" else max(raw_dist, 4.0)
                 capacity = float(G.nodes[target].get("capacity", 1.0))
                 G.add_edge(
                     node_name,
@@ -2048,6 +2380,40 @@ def calculate_gb_capacity_per_second(facility_type, width_or_count, direction="o
     else:
         cap_h = 5000 * width_or_count
     return cap_h / 3600.0
+
+
+def _apply_pathfinder_capacity_calibration(G, factor=PATHFINDER_CAPACITY_CALIBRATION_FACTOR):
+    factor = float(factor)
+    if factor <= 0:
+        return
+
+    for _, data in G.nodes(data=True):
+        capacity = float(data.get("capacity", 0.0) or 0.0)
+        if capacity > 0 and math.isfinite(capacity) and capacity < 999999:
+            data["raw_capacity"] = capacity
+            data["capacity"] = capacity * factor
+
+    for _, _, data in G.edges(data=True):
+        capacity = float(data.get("capacity", 0.0) or 0.0)
+        if capacity > 0 and math.isfinite(capacity) and capacity < 999999:
+            data["raw_capacity"] = capacity
+            data["capacity"] = capacity * factor
+
+
+def _update_smoothed_approach_pressure(G, alpha=0.3):
+    """EMA-smoothed per-predecessor approach pressure.
+
+    Updates G.graph["_approach_pressure_smoothed"][(pred, exit)] with:
+        P_smooth(t) = alpha * P_now(t) + (1-alpha) * P_smooth(t-1)
+    """
+    store = G.graph.setdefault("_approach_pressure_smoothed", {})
+    exits = [n for n, d in G.nodes(data=True) if d.get("type") == "exit"]
+    for exit_node in exits:
+        for pred in G.predecessors(exit_node):
+            key = (pred, exit_node)
+            current = float(spr.approach_pressure(G, pred, exit_node))
+            prev = float(store.get(key, current))
+            store[key] = alpha * current + (1.0 - alpha) * prev
 
 
 def fruin_speed(density):
@@ -2386,6 +2752,7 @@ def build_graph():
 
     _ensure_hall_staging_nodes(G)
     _apply_obstacle_areas(G)
+    _apply_pathfinder_capacity_calibration(G)
     return G
 
 
@@ -2467,15 +2834,26 @@ def init_people(G, pop_dict, apply_noise=False, rng=None):
             valid_gates = [n for n in NODES_DATA.get(gate_group_name, {}) if n in G.nodes]
 
             if valid_gates and hall_people > 0:
-                base_weights = [G.nodes[n].get("capacity", 1.0) for n in valid_gates]
-                _add_people_to_nodes_by_weights(
-                    G,
-                    valid_gates,
-                    line_id,
-                    hall_people,
-                    base_weights,
-                    source_group_id=_source_group_id(line_id, "hall_people"),
-                )
+                hall_staging_nodes = _hall_staging_nodes_for_line(G, line_id)
+                if line_id == "L2" and hall_staging_nodes:
+                    _add_people_to_nodes_by_weights(
+                        G,
+                        hall_staging_nodes,
+                        line_id,
+                        hall_people,
+                        [1.0] * len(hall_staging_nodes),
+                        source_group_id=_source_group_id(line_id, "hall_people"),
+                    )
+                else:
+                    base_weights = [G.nodes[n].get("capacity", 1.0) for n in valid_gates]
+                    _add_people_to_nodes_by_weights(
+                        G,
+                        valid_gates,
+                        line_id,
+                        hall_people,
+                        base_weights,
+                        source_group_id=_source_group_id(line_id, "hall_people"),
+                    )
 
             # 4. 放入【换乘通道区】
             transfer_people = int(round(float(line_data.get("transfer_people", 0))))
@@ -2520,11 +2898,16 @@ def apply_capacity_noise(G, rng, low=0.95, high=1.05):
 # ==============================================================================
 def get_best_next_node(G, current_node, method, shortest_dists):
     source_node = _representative_routing_source(G, current_node)
+    if _uses_ant_colony(method):
+        path = standard_aco_pathfinder(G, source_node, shortest_dists, fruin_speed)
+        return path[1] if path and len(path) > 1 else None
     return spr.get_best_next_node(G, source_node, method, shortest_dists, fruin_speed)
 
 
 def get_best_path_to_exit(G, current_node, method, shortest_dists):
     source_node = _representative_routing_source(G, current_node)
+    if _uses_ant_colony(method):
+        return standard_aco_pathfinder(G, source_node, shortest_dists, fruin_speed)
     return spr.get_best_path_to_exit(G, source_node, method, shortest_dists, fruin_speed)
 
 def simulate_to_time(G_base, pop_dict, method, target_time):
@@ -2557,27 +2940,40 @@ def first_divergence(path_a, path_b):
     return "None"
 
 
-def save_route_comparison_table(G_trad, G_guided, shortest_dists, source_nodes, filename, guided_method=OUR_SINGLE_PATH_METHOD):
+def save_route_comparison_table(
+    G_baseline,
+    G_guided,
+    shortest_dists,
+    source_nodes,
+    filename,
+    baseline_method=PAPER_SINGLE_PATH_METHOD,
+    guided_method=OUR_SINGLE_PATH_METHOD,
+):
     rows = []
     for src in source_nodes:
-        trad_path = get_best_path_to_exit(G_trad, src, TRADITIONAL_METHOD, shortest_dists)
+        baseline_path = get_best_path_to_exit(G_baseline, src, baseline_method, shortest_dists)
         guided_path = get_best_path_to_exit(G_guided, src, guided_method, shortest_dists)
 
-        trad_len = _path_total_length(G_trad, trad_path) if trad_path else None
+        baseline_len = _path_total_length(G_baseline, baseline_path) if baseline_path else None
         guided_len = _path_total_length(G_guided, guided_path) if guided_path else None
 
         rows.append({
             "source": src,
-            "traditional_path": format_path(trad_path),
+            "baseline_method": _method_display_name(baseline_method),
+            "baseline_path": format_path(baseline_path),
             "guided_method": _method_display_name(guided_method),
             "guided_path": format_path(guided_path),
-            "first_divergence": first_divergence(trad_path, guided_path),
-            "trad_length": trad_len,
+            "first_divergence": first_divergence(baseline_path, guided_path),
+            "baseline_length": baseline_len,
             "guided_length": guided_len,
-            "length_reduction_pct": ((trad_len - guided_len) / trad_len * 100) if trad_len and guided_len and trad_len > 0 else 0.0
+            "length_reduction_pct": (
+                ((baseline_len - guided_len) / baseline_len * 100)
+                if baseline_len and guided_len and baseline_len > 0
+                else 0.0
+            ),
         })
 
-    pd.DataFrame(rows).to_csv(filename, index=False, encoding="utf-8-sig")
+    pd.DataFrame(rows).to_csv(_output_path(filename), index=False, encoding="utf-8-sig")
     return rows
 
 
@@ -2592,36 +2988,43 @@ def rank_bottlenecks(G, metrics, top_k=10):
             "type": G.nodes[n].get("type", ""),
             "peak_people": stat.get("peak_people", 0.0),
             "peak_density": stat.get("peak_density", 0.0),
+            "peak_load_ratio": stat.get("peak_load_ratio", 0.0),
+            "peak_congestion_index": stat.get("peak_congestion_index", stat.get("peak_density", 0.0)),
+            "congestion_measure_type": stat.get("congestion_measure_type", ""),
+            "congestion_index_seconds": stat.get("congestion_index_seconds", stat.get("density_seconds", 0.0)),
             "queue_seconds": stat.get("queue_seconds", 0.0),
             "congestion_seconds": stat.get("congestion_seconds", 0.0)
         })
 
-    rows.sort(key=lambda x: (x["queue_seconds"], x["peak_density"]), reverse=True)
+    rows.sort(key=lambda x: (x["queue_seconds"], x["peak_congestion_index"]), reverse=True)
     return rows[:top_k]
 
 def rank_instantaneous_bottlenecks(G_state, top_k=10):
-    """专门针对特定时刻切片的瞬时瓶颈排名，只看当下的排队人数和密度"""
+    """专门针对特定时刻切片的瞬时瓶颈排名，使用空间密度或设施容量占用率。"""
     rows = []
     for n in G_state.nodes():
         if G_state.nodes[n].get("type") == "exit":
             continue
         ppl = G_state.nodes[n].get("people", 0)
-        area = G_state.nodes[n].get("area", 1.0)
-        density = ppl / max(area, 0.001)
+        congestion_index, measure_type = _node_congestion_index(G_state, n)
         rows.append({
             "node": n,
             "type": G_state.nodes[n].get("type", ""),
             "instant_people": ppl,
-            "instant_density": density
+            "instant_density": congestion_index,
+            "instant_congestion_index": congestion_index,
+            "congestion_measure_type": measure_type,
         })
     # 按瞬时排队人数降序排列
-    rows.sort(key=lambda x: x["instant_density"], reverse=True)
+    rows.sort(key=lambda x: x["instant_congestion_index"], reverse=True)
     return rows[:top_k]
 
 def advance_simulation_step(G, method, shortest_dists):
     """推进单个仿真步。支持在途旅行时间与多后继分流。"""
     current_time, _ = _ensure_transit_state(G)
     _process_transit_arrivals(G, current_time)
+    _update_smoothed_approach_pressure(G)
+    _refresh_edge_runtime_densities(G, current_time)
 
     moves = get_step_moves(G, method, shortest_dists)
     _schedule_moves_as_transit(G, moves)
@@ -2637,29 +3040,30 @@ def collect_route_event_log(
     source_nodes,
     target_time,
     filename,
+    baseline_method=PAPER_SINGLE_PATH_METHOD,
     compare_method=OUR_SINGLE_PATH_METHOD,
     verbose=False,
 ):
     """只记录“路由发生变化”的事件，不记录每一秒。"""
-    G_trad = copy.deepcopy(G_base)
+    G_baseline = copy.deepcopy(G_base)
     G_guided = copy.deepcopy(G_base)
 
-    init_people(G_trad, pop_dict, apply_noise=False)
+    init_people(G_baseline, pop_dict, apply_noise=False)
     init_people(G_guided, pop_dict, apply_noise=False)
 
     shortest_dists = dict(nx.all_pairs_dijkstra_path_length(G_base, weight="length"))
-    prev_trad = {src: None for src in source_nodes}
+    prev_baseline = {src: None for src in source_nodes}
     prev_guided = {src: None for src in source_nodes}
     rows = []
 
     time = 0
     while time <= target_time:
-        trad_hot = rank_instantaneous_bottlenecks(G_trad, top_k=1)
+        baseline_hot = rank_instantaneous_bottlenecks(G_baseline, top_k=1)
         guided_hot = rank_instantaneous_bottlenecks(G_guided, top_k=1)
 
-        trad_hot_node = trad_hot[0]["node"] if trad_hot else None
-        trad_hot_people = trad_hot[0]["instant_people"] if trad_hot else 0.0
-        trad_hot_density = trad_hot[0]["instant_density"] if trad_hot else 0.0
+        baseline_hot_node = baseline_hot[0]["node"] if baseline_hot else None
+        baseline_hot_people = baseline_hot[0]["instant_people"] if baseline_hot else 0.0
+        baseline_hot_density = baseline_hot[0]["instant_density"] if baseline_hot else 0.0
 
         guided_hot_node = guided_hot[0]["node"] if guided_hot else None
         guided_hot_people = guided_hot[0]["instant_people"] if guided_hot else 0.0
@@ -2668,52 +3072,60 @@ def collect_route_event_log(
         for src in source_nodes:
             line = src.split("_")[1] if "_" in src else src
 
-            trad_path = get_best_path_to_exit(G_trad, src, TRADITIONAL_METHOD, shortest_dists)
+            baseline_path = get_best_path_to_exit(G_baseline, src, baseline_method, shortest_dists)
             guided_path = get_best_path_to_exit(G_guided, src, compare_method, shortest_dists)
 
-            trad_next = trad_path[1] if trad_path and len(trad_path) > 1 else None
+            baseline_next = baseline_path[1] if baseline_path and len(baseline_path) > 1 else None
             guided_next = guided_path[1] if guided_path and len(guided_path) > 1 else None
 
-            trad_changed = trad_next != prev_trad[src]
+            baseline_changed = baseline_next != prev_baseline[src]
             guided_changed = guided_next != prev_guided[src]
-            route_diverged = trad_next != guided_next
+            route_diverged = baseline_next != guided_next
 
             if time == 0:
                 event_type = "initial"
             else:
                 flags = []
-                if trad_changed:
-                    flags.append("trad_change")
+                if baseline_changed:
+                    flags.append("baseline_change")
                 if guided_changed:
                     flags.append("guided_change")
                 if route_diverged:
                     flags.append("diverged")
                 if not flags:
-                    prev_trad[src] = trad_next
+                    prev_baseline[src] = baseline_next
                     prev_guided[src] = guided_next
                     continue
                 event_type = "+".join(flags)
 
-            trad_next_people = G_trad.nodes[trad_next].get("people", 0.0) if trad_next in G_trad.nodes else 0.0
+            baseline_next_people = (
+                G_baseline.nodes[baseline_next].get("people", 0.0) if baseline_next in G_baseline.nodes else 0.0
+            )
             guided_next_people = G_guided.nodes[guided_next].get("people", 0.0) if guided_next in G_guided.nodes else 0.0
 
-            trad_next_density = trad_next_people / max(G_trad.nodes[trad_next].get("area", 1.0), 0.001) if trad_next in G_trad.nodes else 0.0
-            guided_next_density = guided_next_people / max(G_guided.nodes[guided_next].get("area", 1.0), 0.001) if guided_next in G_guided.nodes else 0.0
+            if baseline_next in G_baseline.nodes:
+                baseline_next_density, baseline_next_measure = _node_congestion_index(G_baseline, baseline_next)
+            else:
+                baseline_next_density, baseline_next_measure = 0.0, ""
+            if guided_next in G_guided.nodes:
+                guided_next_density, guided_next_measure = _node_congestion_index(G_guided, guided_next)
+            else:
+                guided_next_density, guided_next_measure = 0.0, ""
 
-            trad_len = _path_total_length(G_trad, trad_path) if trad_path else None
+            baseline_len = _path_total_length(G_baseline, baseline_path) if baseline_path else None
             guided_len = _path_total_length(G_guided, guided_path) if guided_path else None
 
             reason = "same-route"
-            if route_diverged and trad_next and guided_next:
-                if guided_next_density < trad_next_density:
+            if route_diverged and baseline_next and guided_next:
+                if guided_next_density < baseline_next_density:
                     reason = "guided_detour_lower_density"
-                elif guided_next_density < trad_hot_density:
-                    reason = "guided_avoids_traditional_bottleneck"
+                elif guided_next_density < baseline_hot_density:
+                    reason = "guided_avoids_baseline_bottleneck"
                 else:
                     reason = "guided_reroute"
-            elif trad_changed and not guided_changed:
-                reason = "traditional_changed_only"
-            elif guided_changed and not trad_changed:
+            elif baseline_changed and not guided_changed:
+                reason = "baseline_changed_only"
+            elif guided_changed and not baseline_changed:
                 reason = "guided_changed_only"
 
             rows.append({
@@ -2721,24 +3133,27 @@ def collect_route_event_log(
                 "line": line,
                 "source": src,
                 "event_type": event_type,
-                "traditional_prev_next": prev_trad[src],
-                "traditional_curr_next": trad_next,
+                "baseline_method": _method_display_name(baseline_method),
+                "baseline_prev_next": prev_baseline[src],
+                "baseline_curr_next": baseline_next,
                 "guided_prev_next": prev_guided[src],
                 "guided_curr_next": guided_next,
                 "route_diverged": route_diverged,
-                "traditional_path": format_path(trad_path),
+                "baseline_path": format_path(baseline_path),
                 "guided_method": _method_display_name(compare_method),
                 "guided_path": format_path(guided_path),
-                "first_divergence": first_divergence(trad_path, guided_path),
-                "trad_path_length": trad_len,
+                "first_divergence": first_divergence(baseline_path, guided_path),
+                "baseline_path_length": baseline_len,
                 "guided_path_length": guided_len,
-                "trad_next_people": trad_next_people,
+                "baseline_next_people": baseline_next_people,
                 "guided_next_people": guided_next_people,
-                "trad_next_density": trad_next_density,
+                "baseline_next_density": baseline_next_density,
                 "guided_next_density": guided_next_density,
-                "trad_bottleneck_node": trad_hot_node,
-                "trad_bottleneck_people": trad_hot_people,
-                "trad_bottleneck_density": trad_hot_density,
+                "baseline_next_congestion_measure": baseline_next_measure,
+                "guided_next_congestion_measure": guided_next_measure,
+                "baseline_bottleneck_node": baseline_hot_node,
+                "baseline_bottleneck_people": baseline_hot_people,
+                "baseline_bottleneck_density": baseline_hot_density,
                 "guided_bottleneck_node": guided_hot_node,
                 "guided_bottleneck_people": guided_hot_people,
                 "guided_bottleneck_density": guided_hot_density,
@@ -2747,14 +3162,14 @@ def collect_route_event_log(
 
             if verbose and event_type != "initial":
                 print(
-                    f"[T={int(time)}s] {src} | Trad={trad_next or 'None'} | Guided={guided_next or 'None'} | "
-                    f"分叉={route_diverged} | 传统瓶颈={trad_hot_node or 'None'} | 引导瓶颈={guided_hot_node or 'None'}"
+                    f"[T={int(time)}s] {src} | Baseline={baseline_next or 'None'} | Guided={guided_next or 'None'} | "
+                    f"分叉={route_diverged} | 基准瓶颈={baseline_hot_node or 'None'} | 引导瓶颈={guided_hot_node or 'None'}"
                 )
 
-            prev_trad[src] = trad_next
+            prev_baseline[src] = baseline_next
             prev_guided[src] = guided_next
 
-        advance_simulation_step(G_trad, TRADITIONAL_METHOD, shortest_dists)
+        advance_simulation_step(G_baseline, baseline_method, shortest_dists)
         advance_simulation_step(G_guided, compare_method, shortest_dists)
         def still_has_people(G):
             return any(
@@ -2762,13 +3177,13 @@ def collect_route_event_log(
                 for n in G.nodes()
             )
 
-        if not still_has_people(G_trad) and not still_has_people(G_guided):
+        if not still_has_people(G_baseline) and not still_has_people(G_guided):
             break
 
         time += DELTA_T
 
     route_log_df = pd.DataFrame(rows)
-    route_log_df.to_csv(filename, index=False, encoding="utf-8-sig")
+    route_log_df.to_csv(_output_path(filename), index=False, encoding="utf-8-sig")
     return route_log_df, G_trad, G_guided, shortest_dists
 
 
@@ -2780,7 +3195,7 @@ def collect_route_event_log_three_methods(
     filename,
     verbose=False,
 ):
-    """三算法同场记录换路与分叉事件：ACO / ImprovedAStar / OurSinglePath。"""
+    """三算法同场记录换路与分叉事件：ACO / ImprovedAStar / AdaptiveSingleNextHop。"""
     method_specs = [
         ("aco", ANT_COLONY_METHOD),
         ("paper", PAPER_SINGLE_PATH_METHOD),
@@ -2826,10 +3241,7 @@ def collect_route_event_log_three_methods(
                 changed_map[key] = next_hop != prev_next[key][src]
                 path_len_map[key] = _path_total_length(state, path) if path else None
                 next_people_map[key] = state.nodes[next_hop].get("people", 0.0) if next_hop in state.nodes else 0.0
-                next_density_map[key] = (
-                    next_people_map[key] / max(state.nodes[next_hop].get("area", 1.0), 0.001)
-                    if next_hop in state.nodes else 0.0
-                )
+                next_density_map[key] = _node_congestion_index(state, next_hop)[0] if next_hop in state.nodes else 0.0
 
             aco_vs_paper = next_map["aco"] != next_map["paper"]
             aco_vs_our = next_map["aco"] != next_map["our"]
@@ -2925,20 +3337,20 @@ def collect_route_event_log_three_methods(
         time += DELTA_T
 
     route_log_df = pd.DataFrame(rows)
-    route_log_df.to_csv(filename, index=False, encoding="utf-8-sig")
+    route_log_df.to_csv(_output_path(filename), index=False, encoding="utf-8-sig")
     return route_log_df, states, shortest_dists
 
 
 def summarize_bottlenecks_from_events(route_df, method_prefix, filename):
     """把事件日志汇总成瓶颈统计，不再依赖单一时刻快照。"""
-    if method_prefix in {"aco", "trad"}:
-        node_col = "aco_bottleneck_node" if "aco_bottleneck_node" in route_df.columns else "trad_bottleneck_node"
-        people_col = "aco_bottleneck_people" if "aco_bottleneck_people" in route_df.columns else "trad_bottleneck_people"
-        density_col = "aco_bottleneck_density" if "aco_bottleneck_density" in route_df.columns else "trad_bottleneck_density"
+    if method_prefix in {"aco", "baseline"}:
+        node_col = "aco_bottleneck_node" if "aco_bottleneck_node" in route_df.columns else "baseline_bottleneck_node"
+        people_col = "aco_bottleneck_people" if "aco_bottleneck_people" in route_df.columns else "baseline_bottleneck_people"
+        density_col = "aco_bottleneck_density" if "aco_bottleneck_density" in route_df.columns else "baseline_bottleneck_density"
         if "aco_vs_paper_diverged" in route_df.columns:
             event_mask = route_df["aco_vs_paper_diverged"] | route_df["aco_vs_our_diverged"]
-        elif "trad_vs_paper_diverged" in route_df.columns:
-            event_mask = route_df["trad_vs_paper_diverged"] | route_df["trad_vs_our_diverged"]
+        elif "baseline_vs_paper_diverged" in route_df.columns:
+            event_mask = route_df["baseline_vs_paper_diverged"] | route_df["baseline_vs_our_diverged"]
         else:
             event_mask = route_df["route_diverged"]
     elif method_prefix == "paper":
@@ -2948,7 +3360,7 @@ def summarize_bottlenecks_from_events(route_df, method_prefix, filename):
         if "aco_vs_paper_diverged" in route_df.columns:
             event_mask = route_df["aco_vs_paper_diverged"] | route_df["paper_vs_our_diverged"]
         else:
-            event_mask = route_df["trad_vs_paper_diverged"] | route_df["paper_vs_our_diverged"]
+            event_mask = route_df["baseline_vs_paper_diverged"] | route_df["paper_vs_our_diverged"]
     elif method_prefix == "our":
         node_col = "our_bottleneck_node"
         people_col = "our_bottleneck_people"
@@ -2956,7 +3368,7 @@ def summarize_bottlenecks_from_events(route_df, method_prefix, filename):
         if "aco_vs_our_diverged" in route_df.columns:
             event_mask = route_df["aco_vs_our_diverged"] | route_df["paper_vs_our_diverged"]
         else:
-            event_mask = route_df["trad_vs_our_diverged"] | route_df["paper_vs_our_diverged"]
+            event_mask = route_df["baseline_vs_our_diverged"] | route_df["paper_vs_our_diverged"]
     else:
         node_col = "guided_bottleneck_node"
         people_col = "guided_bottleneck_people"
@@ -2966,7 +3378,7 @@ def summarize_bottlenecks_from_events(route_df, method_prefix, filename):
     df = route_df[event_mask].copy()
     if df.empty:
         empty = pd.DataFrame(columns=["node", "hit_count", "avg_people", "avg_density", "first_time", "last_time"])
-        empty.to_csv(filename, index=False, encoding="utf-8-sig")
+        empty.to_csv(_output_path(filename), index=False, encoding="utf-8-sig")
         return empty
 
     summary = df.groupby(node_col).agg(
@@ -2978,7 +3390,7 @@ def summarize_bottlenecks_from_events(route_df, method_prefix, filename):
     ).reset_index().rename(columns={node_col: "node"})
 
     summary = summary.sort_values(["hit_count", "avg_density"], ascending=False)
-    summary.to_csv(filename, index=False, encoding="utf-8-sig")
+    summary.to_csv(_output_path(filename), index=False, encoding="utf-8-sig")
     return summary
 
 
@@ -2987,7 +3399,7 @@ def summarize_route_changes_by_line(route_df, filename):
     df = route_df[route_df["event_type"] != "initial"].copy()
     if df.empty:
         empty = pd.DataFrame(columns=["line", "event_count", "source_count", "first_time", "last_time"])
-        empty.to_csv(filename, index=False, encoding="utf-8-sig")
+        empty.to_csv(_output_path(filename), index=False, encoding="utf-8-sig")
         return empty
 
     if "aco_vs_paper_diverged" in df.columns:
@@ -3003,15 +3415,15 @@ def summarize_route_changes_by_line(route_df, filename):
             first_time=("time", "min"),
             last_time=("time", "max")
         ).reset_index()
-    elif "trad_vs_paper_diverged" in df.columns:
+    elif "baseline_vs_paper_diverged" in df.columns:
         summary = df.groupby("line").agg(
             event_count=("source", "count"),
             source_count=("source", "nunique"),
-            trad_change_count=("traditional_curr_next", lambda s: int(df.loc[s.index, "event_type"].str.contains("trad_change").sum())),
+            baseline_change_count=("baseline_curr_next", lambda s: int(df.loc[s.index, "event_type"].str.contains("baseline_change").sum())),
             paper_change_count=("paper_curr_next", lambda s: int(df.loc[s.index, "event_type"].str.contains("paper_change").sum())),
             our_change_count=("our_curr_next", lambda s: int(df.loc[s.index, "event_type"].str.contains("our_change").sum())),
-            trad_vs_paper_divergence=("trad_vs_paper_diverged", "sum"),
-            trad_vs_our_divergence=("trad_vs_our_diverged", "sum"),
+            baseline_vs_paper_divergence=("baseline_vs_paper_diverged", "sum"),
+            baseline_vs_our_divergence=("baseline_vs_our_diverged", "sum"),
             paper_vs_our_divergence=("paper_vs_our_diverged", "sum"),
             first_time=("time", "min"),
             last_time=("time", "max")
@@ -3025,7 +3437,7 @@ def summarize_route_changes_by_line(route_df, filename):
         ).reset_index()
 
     summary = summary.sort_values(["event_count", "source_count"], ascending=False)
-    summary.to_csv(filename, index=False, encoding="utf-8-sig")
+    summary.to_csv(_output_path(filename), index=False, encoding="utf-8-sig")
     return summary
 
 
@@ -3034,51 +3446,60 @@ def plot_divergence_timeline(route_log_df, filename, bin_size=10):
     if route_log_df.empty:
         return
 
+    def _unique_diverged_sources(df, flag_col):
+        return df[df[flag_col]].groupby("time_bin")["source"].nunique()
+
     if "aco_vs_paper_diverged" in route_log_df.columns:
         df = route_log_df[route_log_df["event_type"] != "initial"].copy()
         if df.empty:
             return
 
         df["time_bin"] = (df["time"] // bin_size) * bin_size
-        timeline = df.groupby("time_bin").agg(
-            aco_vs_paper=("aco_vs_paper_diverged", "sum"),
-            aco_vs_our=("aco_vs_our_diverged", "sum"),
-            paper_vs_our=("paper_vs_our_diverged", "sum"),
-        ).reset_index()
+        timeline = pd.DataFrame({"time_bin": sorted(df["time_bin"].unique())})
+        for out_col, flag_col in [
+            ("aco_vs_paper", "aco_vs_paper_diverged"),
+            ("aco_vs_our", "aco_vs_our_diverged"),
+            ("paper_vs_our", "paper_vs_our_diverged"),
+        ]:
+            counts = _unique_diverged_sources(df, flag_col)
+            timeline[out_col] = timeline["time_bin"].map(counts).fillna(0).astype(int)
 
         plt.figure(figsize=(10, 5))
         plt.plot(timeline["time_bin"], timeline["aco_vs_paper"], "o-", linewidth=2, label="ACO vs ImprovedAStar")
-        plt.plot(timeline["time_bin"], timeline["aco_vs_our"], "s-", linewidth=2, label="ACO vs OurSinglePath")
-        plt.plot(timeline["time_bin"], timeline["paper_vs_our"], "^-", linewidth=2, label="ImprovedAStar vs OurSinglePath")
+        plt.plot(timeline["time_bin"], timeline["aco_vs_our"], "s-", linewidth=2, label="ACO vs AdaptiveSingleNextHop")
+        plt.plot(timeline["time_bin"], timeline["paper_vs_our"], "^-", linewidth=2, label="ImprovedAStar vs AdaptiveSingleNextHop")
         plt.xlabel(f"时间窗 (s, {bin_size}s 聚合)")
         plt.ylabel("发生分叉的源点数")
         plt.title("三算法分叉时间线", fontweight="bold")
         plt.grid(True, linestyle=":", alpha=0.7)
         plt.legend()
-        plt.savefig(filename, dpi=300, bbox_inches="tight")
+        plt.savefig(_output_path(filename), dpi=300, bbox_inches="tight")
         plt.close()
-    elif "trad_vs_paper_diverged" in route_log_df.columns:
+    elif "baseline_vs_paper_diverged" in route_log_df.columns:
         df = route_log_df[route_log_df["event_type"] != "initial"].copy()
         if df.empty:
             return
 
         df["time_bin"] = (df["time"] // bin_size) * bin_size
-        timeline = df.groupby("time_bin").agg(
-            trad_vs_paper=("trad_vs_paper_diverged", "sum"),
-            trad_vs_our=("trad_vs_our_diverged", "sum"),
-            paper_vs_our=("paper_vs_our_diverged", "sum"),
-        ).reset_index()
+        timeline = pd.DataFrame({"time_bin": sorted(df["time_bin"].unique())})
+        for out_col, flag_col in [
+            ("baseline_vs_paper", "baseline_vs_paper_diverged"),
+            ("baseline_vs_our", "baseline_vs_our_diverged"),
+            ("paper_vs_our", "paper_vs_our_diverged"),
+        ]:
+            counts = _unique_diverged_sources(df, flag_col)
+            timeline[out_col] = timeline["time_bin"].map(counts).fillna(0).astype(int)
 
         plt.figure(figsize=(10, 5))
-        plt.plot(timeline["time_bin"], timeline["trad_vs_paper"], "o-", linewidth=2, label="Traditional vs ImprovedAStar")
-        plt.plot(timeline["time_bin"], timeline["trad_vs_our"], "s-", linewidth=2, label="Traditional vs OurSinglePath")
-        plt.plot(timeline["time_bin"], timeline["paper_vs_our"], "^-", linewidth=2, label="ImprovedAStar vs OurSinglePath")
+        plt.plot(timeline["time_bin"], timeline["baseline_vs_paper"], "o-", linewidth=2, label="Baseline vs ImprovedAStar")
+        plt.plot(timeline["time_bin"], timeline["baseline_vs_our"], "s-", linewidth=2, label="Baseline vs AdaptiveSingleNextHop")
+        plt.plot(timeline["time_bin"], timeline["paper_vs_our"], "^-", linewidth=2, label="ImprovedAStar vs AdaptiveSingleNextHop")
         plt.xlabel(f"时间窗 (s, {bin_size}s 聚合)")
         plt.ylabel("发生分叉的源点数")
         plt.title("三算法分叉时间线", fontweight="bold")
         plt.grid(True, linestyle=":", alpha=0.7)
         plt.legend()
-        plt.savefig(filename, dpi=300, bbox_inches="tight")
+        plt.savefig(_output_path(filename), dpi=300, bbox_inches="tight")
         plt.close()
     else:
         df = route_log_df[route_log_df["route_diverged"] & (route_log_df["event_type"] != "initial")].copy()
@@ -3094,12 +3515,12 @@ def plot_divergence_timeline(route_log_df, filename, bin_size=10):
         plt.ylabel("发生分叉的源点数")
         plt.title("分叉时间线", fontweight="bold")
         plt.grid(True, linestyle=":", alpha=0.7)
-        plt.savefig(filename, dpi=300, bbox_inches="tight")
+        plt.savefig(_output_path(filename), dpi=300, bbox_inches="tight")
         plt.close()
 
 
 
-def plot_route_highlight(G_base, source, trad_path, imp_path, filename, total_people=None, obs_window=None):
+def plot_route_highlight(G_base, source, baseline_path, guided_path, filename, total_people=None, obs_window=None):
     plt.figure(figsize=(16, 10))
     visible_nodes = [n for n, data in G_base.nodes(data=True) if not _is_hidden_visual_node(data)]
     H = G_base.subgraph(visible_nodes).copy()
@@ -3108,13 +3529,13 @@ def plot_route_highlight(G_base, source, trad_path, imp_path, filename, total_pe
     nx.draw_networkx_edges(H, pos, edge_color="#CFCFCF", width=1.0, alpha=0.35, arrows=True)
     nx.draw_networkx_nodes(H, pos, node_color="#E6E6E6", node_size=400, edgecolors="black", linewidths=0.6)
 
-    if trad_path and len(trad_path) > 1:
-        trad_edges = [(u, v) for u, v in zip(trad_path, trad_path[1:]) if u in H.nodes and v in H.nodes]
-        nx.draw_networkx_edges(H, pos, edgelist=trad_edges, edge_color="red", width=3.0, style="dashed", arrows=True)
+    if baseline_path and len(baseline_path) > 1:
+        baseline_edges = [(u, v) for u, v in zip(baseline_path, baseline_path[1:]) if u in H.nodes and v in H.nodes]
+        nx.draw_networkx_edges(H, pos, edgelist=baseline_edges, edge_color="red", width=3.0, style="dashed", arrows=True)
 
-    if imp_path and len(imp_path) > 1:
-        imp_edges = [(u, v) for u, v in zip(imp_path, imp_path[1:]) if u in H.nodes and v in H.nodes]
-        nx.draw_networkx_edges(H, pos, edgelist=imp_edges, edge_color="blue", width=3.5, style="solid", arrows=True)
+    if guided_path and len(guided_path) > 1:
+        guided_edges = [(u, v) for u, v in zip(guided_path, guided_path[1:]) if u in H.nodes and v in H.nodes]
+        nx.draw_networkx_edges(H, pos, edgelist=guided_edges, edge_color="blue", width=3.5, style="solid", arrows=True)
 
     labels = {}
     for n in H.nodes():
@@ -3133,14 +3554,14 @@ def plot_route_highlight(G_base, source, trad_path, imp_path, filename, total_pe
     plt.title(" | ".join(title_bits), fontsize=15, fontweight="bold")
     plt.legend(
         handles=[
-            mpatches.Patch(color="red", label="Traditional: red dashed"),
-            mpatches.Patch(color="blue", label="OurSinglePath: blue solid")
+            mpatches.Patch(color="red", label="Baseline: red dashed"),
+            mpatches.Patch(color="blue", label="AdaptiveSingleNextHop: blue solid")
         ],
         loc="upper right"
     )
     plt.gca().set_aspect('equal', adjustable='datalim')
     plt.axis("off")
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
+    plt.savefig(_output_path(filename), dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -3170,23 +3591,23 @@ def generate_snapshots_for_method(G_base, pop_dict, method, time_points):
     return snapshots
 
 
-def run_robustness_experiment(G_base, pop_per_line, method=OUR_SINGLE_PATH_METHOD, runs=10, seed=42):
+def run_robustness_experiment(G_base, pop_dict, method=OUR_SINGLE_PATH_METHOD, runs=10, seed=42):
     active_lines = get_real_active_lines(G_base)
-    print(f"\n🔬 启动 {method} 算法鲁棒性测试 (全站总计:{pop_per_line * active_lines}人, 迭代:{runs}次)...")
+    if isinstance(pop_dict, dict):
+        total_people = sum(sum(line_data.values()) for line_data in pop_dict.values())
+    else:
+        total_people = pop_dict * active_lines
+    print(f"\n🔬 启动 {method} 算法鲁棒性测试 (全站总计:{total_people}人, 迭代:{runs}次)...")
 
     results_time, results_queue, results_exposure, results_speed = [], [], [], []
 
     for i in range(runs):
-        rng = random.Random(None if seed is None else seed + i)
-        G_noisy = copy.deepcopy(G_base)
-        apply_capacity_noise(G_noisy, rng, 0.95, 1.05)
-
         metrics = run_simulation_for_metrics(
-            G_noisy,
-            pop_per_line,
+            G_base,
+            pop_dict,
             method=method,
             apply_noise=True,
-            rng=rng,
+            rng=random.Random(None if seed is None else seed + i),
         )
 
 
@@ -3333,64 +3754,8 @@ def plot_initial_topology(G):
     ax.margins(x=0.08, y=0.08)
     ax.axis('off')
 
-    fig.savefig("01_initial_topology.png", dpi=400, bbox_inches='tight', facecolor='white')
+    fig.savefig(_output_path("01_initial_topology.png"), dpi=400, bbox_inches='tight', facecolor='white')
     plt.close(fig)
-
-
-def plot_comparative_snapshots(G_base, pop_dict, time_points=[20, 80, 150], methods=None):
-    methods = methods or [
-        ("ACO", ANT_COLONY_METHOD, "ACO (蚁群优化基线)"),
-        ("ImprovedAStar", PAPER_SINGLE_PATH_METHOD, "ImprovedAStar (文献改进A*)"),
-        ("OurSinglePath", OUR_SINGLE_PATH_METHOD, "OurSinglePath (动态单路径方法)"),
-    ]
-    print(f"\n🎬 正在生成多算法热力演化快照 (T={time_points}s)...")
-    snapshots_by_label = {
-        label: generate_snapshots_for_method(G_base, pop_dict, method, time_points)
-        for label, method, _ in methods
-    }
-
-    visible_nodes = [n for n, data in G_base.nodes(data=True) if not _is_hidden_visual_node(data)]
-    H = G_base.subgraph(visible_nodes).copy()
-    pos = nx.get_node_attributes(H, 'pos')
-    total_p = sum(sum(d.values()) for d in pop_dict.values())
-
-    for tp in time_points:
-        fig, axes = plt.subplots(1, len(methods), figsize=(16 * len(methods), 18))
-        fig.suptitle(f'疏散时空拥挤演化对比 (T = {tp}s, 总规模: {total_p}人)', fontsize=30, fontweight='bold', y=0.98)
-        axes = np.atleast_1d(axes).flatten()
-        methods_data = [(title, snapshots_by_label[label][tp]) for label, _, title in methods]
-
-        for idx, (title, node_people) in enumerate(methods_data):
-            ax = axes[idx]
-            ax.set_title(title, fontsize=24, pad=15)
-            nx.draw_networkx_edges(H, pos, ax=ax, edge_color='#B0B0B0', width=1.5, alpha=0.4, arrowsize=8)
-
-            node_colors, node_sizes, labels = [], [], {}
-            for n in H.nodes():
-                ppl = _visual_people_at_node(G_base, n, node_people)
-                cap = max(H.nodes[n].get('capacity', 1.0), 0.001)
-                node_colors.append(ppl / cap)
-
-                # 🌟 优化热力图圆圈：基础变大，随人数增长更平滑
-                base_size = 200 if H.nodes[n].get('type') == 'platform' else 80
-                size = base_size + math.sqrt(ppl) * 20
-                node_sizes.append(size)
-
-                # 阈值调高一点，图面更清爽
-                if ppl > 20:
-                    labels[n] = f"{int(ppl)}"
-
-
-            nodes = nx.draw_networkx_nodes(H, pos, ax=ax, node_color=node_colors, cmap=plt.cm.Reds, vmin=0,
-                                           vmax=20, node_size=node_sizes, edgecolors='black', linewidths=0.5)
-            nx.draw_networkx_labels(H, pos, labels=labels, ax=ax, font_size=9, font_weight='bold')
-            ax.set_aspect('equal', adjustable='datalim')  # 🌟 同步保持真实坐标比例
-            ax.axis('off')
-
-        cbar = fig.colorbar(nodes, ax=axes.ravel().tolist(), shrink=0.5, aspect=30, pad=0.03)
-        cbar.set_label('节点拥挤度系数 (人数 / 每秒通行容量)', fontsize=16)
-        plt.savefig(f"04_system_snapshot_comparison_T{tp}s.png", dpi=300, bbox_inches='tight')
-        plt.close()
 
 
 def plot_charts(method_metrics, total_p):
@@ -3405,7 +3770,7 @@ def plot_charts(method_metrics, total_p):
     metrics_list = [
         ('time', '疏散完成时间 ', axes[0, 0], 1),
         ('queueing_time', '总滞留排队时间 ', axes[0, 1], 1),
-        ('congestion_exposure_time', '中度拥挤暴露时间 (density > 3) ', axes[1, 0], 1000),
+        ('congestion_exposure_time', '中度拥挤暴露时间 (密度/容量占用率阈值)', axes[1, 0], 1000),
         ('avg_speed', '全局平均移动速度 ', axes[1, 1], 1)
     ]
 
@@ -3422,44 +3787,46 @@ def plot_charts(method_metrics, total_p):
             ax.text(bar.get_x() + bar.get_width() / 2, yval + max(abs(yval) * 0.01, 0.5), label_text, ha='center', va='bottom',
                     fontsize=11, fontweight='bold')
 
-    plt.savefig("02_System_Macro_Metrics_Comparison.png", dpi=300, bbox_inches="tight")
+    plt.savefig(_output_path("02_System_Macro_Metrics_Comparison.png"), dpi=300, bbox_inches="tight")
     plt.close()
 
-    baseline = metrics_map["Traditional"]
-    comparison_labels = [label for label in labels if label != "Traditional"]
-    metric_keys = [
-        ("time", "时间改善率"),
-        ("queueing_time", "排队改善率"),
-        ("congestion_exposure_time", "中度拥挤暴露改善率"),
-    ]
-    x = np.arange(len(metric_keys))
-    width = min(0.8 / max(len(comparison_labels), 1), 0.28)
+    if len(labels) >= 2:
+        baseline_label = labels[0]
+        baseline = metrics_map[baseline_label]
+        comparison_labels = [label for label in labels if label != baseline_label]
+        metric_keys = [
+            ("time", "时间改善率"),
+            ("queueing_time", "排队改善率"),
+            ("congestion_exposure_time", "中度拥挤暴露改善率"),
+        ]
+        x = np.arange(len(metric_keys))
+        width = min(0.8 / max(len(comparison_labels), 1), 0.28)
 
-    plt.figure(figsize=(10, 6))
-    for idx, label in enumerate(comparison_labels):
-        vals = []
-        for key, _ in metric_keys:
-            base_val = baseline[key]
-            cur_val = metrics_map[label][key]
-            improve = ((base_val - cur_val) / base_val * 100) if base_val > 0 else 0.0
-            vals.append(improve)
-        offset = (idx - (len(comparison_labels) - 1) / 2.0) * width
-        bars = plt.bar(x + offset, vals, width=width, color=colors[idx + 1], edgecolor='black', label=label)
-        for bar in bars:
-            yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2, yval + 1, f"{yval:.1f}%", ha='center', fontweight='bold',
-                     fontsize=10, color='black')
-    plt.xticks(x, [title for _, title in metric_keys])
-    plt.ylabel("改善提升幅度 (%)", fontsize=12)
-    plt.title(f"相对 Traditional 的提升率 ({total_p}人)", fontweight="bold", fontsize=16)
-    plt.legend()
-    plt.grid(axis='y', linestyle='--', alpha=0.6)
-    plt.gca().set_axisbelow(True)
-    plt.savefig("03_System_Improvement_Rates.png", dpi=300, bbox_inches="tight")
-    plt.close()
+        plt.figure(figsize=(10, 6))
+        for idx, label in enumerate(comparison_labels):
+            vals = []
+            for key, _ in metric_keys:
+                base_val = baseline[key]
+                cur_val = metrics_map[label][key]
+                improve = ((base_val - cur_val) / base_val * 100) if base_val > 0 else 0.0
+                vals.append(improve)
+            offset = (idx - (len(comparison_labels) - 1) / 2.0) * width
+            bars = plt.bar(x + offset, vals, width=width, color=colors[(idx + 1) % len(colors)], edgecolor='black', label=label)
+            for bar in bars:
+                yval = bar.get_height()
+                plt.text(bar.get_x() + bar.get_width() / 2, yval + 1, f"{yval:.1f}%", ha='center', fontweight='bold',
+                         fontsize=10, color='black')
+        plt.xticks(x, [title for _, title in metric_keys])
+        plt.ylabel("改善提升幅度 (%)", fontsize=12)
+        plt.title(f"相对 {baseline_label} 的提升率 ({total_p}人)", fontweight="bold", fontsize=16)
+        plt.legend()
+        plt.grid(axis='y', linestyle='--', alpha=0.6)
+        plt.gca().set_axisbelow(True)
+        plt.savefig(_output_path("03_System_Improvement_Rates.png"), dpi=300, bbox_inches="tight")
+        plt.close()
 
 
-def plot_line_specific_analysis(metrics_trad, metrics_imp, pop_dict):
+def plot_line_specific_analysis(metrics_baseline, metrics_guided, pop_dict):
     """【专业升级版】绘制各线路专属指标（疏散时间 + 中度拥挤暴露）"""
     lines = [l for l, d in pop_dict.items() if sum(d.values()) > 0]
 
@@ -3473,16 +3840,16 @@ def plot_line_specific_analysis(metrics_trad, metrics_imp, pop_dict):
 
     # === 子图 1：各线路疏散完成时间 ===
     ax1 = axes[0]
-    t_trad = [metrics_trad["clearance_times_by_line"].get(l) if metrics_trad["clearance_times_by_line"].get(
-        l) is not None else metrics_trad["time"] for l in lines]
-    t_imp = [
-        metrics_imp["clearance_times_by_line"].get(l) if metrics_imp["clearance_times_by_line"].get(l) is not None else
-        metrics_imp["time"] for l in lines]
+    t_baseline = [metrics_baseline["clearance_times_by_line"].get(l) if metrics_baseline["clearance_times_by_line"].get(
+        l) is not None else metrics_baseline["time"] for l in lines]
+    t_guided = [
+        metrics_guided["clearance_times_by_line"].get(l) if metrics_guided["clearance_times_by_line"].get(l) is not None else
+        metrics_guided["time"] for l in lines]
 
-    bars1_trad = ax1.bar(x - width / 2, t_trad, width, label='Traditional (传统)', color=colors[0], edgecolor='black',
+    bars1_baseline = ax1.bar(x - width / 2, t_baseline, width, label='ImprovedAStar', color=colors[0], edgecolor='black',
+                             linewidth=1)
+    bars1_guided = ax1.bar(x + width / 2, t_guided, width, label='AdaptiveSingleNextHop', color=colors[1], edgecolor='black',
                          linewidth=1)
-    bars1_imp = ax1.bar(x + width / 2, t_imp, width, label='OurSinglePath', color=colors[1], edgecolor='black',
-                        linewidth=1)
 
     ax1.set_xticks(x);
     ax1.set_xticklabels(lines, fontsize=12)
@@ -3492,41 +3859,41 @@ def plot_line_specific_analysis(metrics_trad, metrics_imp, pop_dict):
     ax1.grid(axis='y', linestyle='--', alpha=0.6);
     ax1.set_axisbelow(True)
 
-    for bars in [bars1_trad, bars1_imp]:
+    for bars in [bars1_baseline, bars1_guided]:
         for bar in bars:
             yval = bar.get_height()
             ax1.text(bar.get_x() + bar.get_width() / 2, yval + 2, f'{int(yval)}', ha='center', va='bottom', fontsize=11,
                      fontweight='bold')
 
-    # === 子图 2：各线路中度拥挤暴露时间 (density > 3) ===
+    # === 子图 2：各线路中度拥挤暴露时间 ===
     ax2 = axes[1]
-    e_trad = [metrics_trad["congestion_exposure_by_line"].get(l, 0) / 1000.0 for l in lines]
-    e_imp = [metrics_imp["congestion_exposure_by_line"].get(l, 0) / 1000.0 for l in lines]
+    e_baseline = [metrics_baseline["congestion_exposure_by_line"].get(l, 0) / 1000.0 for l in lines]
+    e_guided = [metrics_guided["congestion_exposure_by_line"].get(l, 0) / 1000.0 for l in lines]
 
-    bars2_trad = ax2.bar(x - width / 2, e_trad, width, label='Traditional (传统)', color=colors[0], edgecolor='black',
+    bars2_baseline = ax2.bar(x - width / 2, e_baseline, width, label='ImprovedAStar', color=colors[0], edgecolor='black',
+                             linewidth=1)
+    bars2_guided = ax2.bar(x + width / 2, e_guided, width, label='AdaptiveSingleNextHop', color=colors[1], edgecolor='black',
                          linewidth=1)
-    bars2_imp = ax2.bar(x + width / 2, e_imp, width, label='OurSinglePath', color=colors[1], edgecolor='black',
-                        linewidth=1)
 
     ax2.set_xticks(x);
     ax2.set_xticklabels(lines, fontsize=12)
     ax2.set_ylabel('拥挤暴露时间 / Congestion Exposure (10$^3$ pax·s)', fontsize=12)
-    ax2.set_title('各单线路中度拥挤暴露对比 (density > 3)', fontweight='bold', fontsize=14)
+    ax2.set_title('各单线路中度拥挤暴露对比', fontweight='bold', fontsize=14)
     ax2.legend();
     ax2.grid(axis='y', linestyle='--', alpha=0.6);
     ax2.set_axisbelow(True)
 
-    for bars in [bars2_trad, bars2_imp]:
+    for bars in [bars2_baseline, bars2_guided]:
         for bar in bars:
             yval = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width() / 2, yval + (max(e_trad) * 0.02), f'{yval:.1f}', ha='center',
+            ax2.text(bar.get_x() + bar.get_width() / 2, yval + (max(e_baseline) * 0.02), f'{yval:.1f}', ha='center',
                      va='bottom', fontsize=11, fontweight='bold')
 
-    plt.savefig("05_System_Line_Core_Metrics.png", dpi=300, bbox_inches='tight')
+    plt.savefig(_output_path("05_System_Line_Core_Metrics.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
     # ==== 保留：各线路逃生出口去向 (堆叠柱状图) ====
-    exit_plot_methods = [("Traditional", metrics_trad), ("OurSinglePath", metrics_imp)]
+    exit_plot_methods = [("ImprovedAStar", metrics_baseline), ("AdaptiveSingleNextHop", metrics_guided)]
     shared_active_exits = sorted({
         ext
         for _, met in exit_plot_methods
@@ -3566,7 +3933,7 @@ def plot_line_specific_analysis(metrics_trad, metrics_imp, pop_dict):
         ax.legend(title="人群来源");
         ax.grid(axis='y', linestyle='--', alpha=0.5);
         ax.set_axisbelow(True)
-        plt.savefig(f"06_Exit_Destinations_{_method_output_tag(title)}.png", dpi=300, bbox_inches='tight')
+        plt.savefig(_output_path(f"06_Exit_Destinations_{_method_output_tag(title)}.png"), dpi=300, bbox_inches='tight')
         plt.close()
 
 
@@ -3583,13 +3950,16 @@ def plot_charts_multi(G_base, method_metrics, total_p):
         occupancy_vals = []
         for node in key_nodes:
             stat = node_stats.get(node, {})
-            avg_occupancy = float(stat.get("density_seconds", 0.0)) / sim_time
+            avg_occupancy = float(stat.get("congestion_index_seconds", stat.get("density_seconds", 0.0))) / sim_time
             occupancy_vals.append(avg_occupancy)
             key_node_rows.append({
                 "method": label,
                 "node": node,
                 "avg_occupancy": avg_occupancy,
                 "peak_density": float(stat.get("peak_density", 0.0)),
+                "peak_load_ratio": float(stat.get("peak_load_ratio", 0.0)),
+                "peak_congestion_index": float(stat.get("peak_congestion_index", stat.get("peak_density", 0.0))),
+                "congestion_measure_type": stat.get("congestion_measure_type", ""),
                 "queue_seconds": float(stat.get("queue_seconds", 0.0)),
             })
         metrics["key_node_avg_occupancy"] = sum(occupancy_vals) / len(occupancy_vals) if occupancy_vals else 0.0
@@ -3598,9 +3968,9 @@ def plot_charts_multi(G_base, method_metrics, total_p):
     fig.suptitle(f'枢纽疏散安全性评估 (测试客流: {total_p}人)', fontsize=20, fontweight='bold', y=0.96)
     metrics_list = [
         ('queueing_time', '总滞留排队时间 (人·秒)', axes[0, 0], 1),
-        ('severe_congestion_exposure_time', '重度拥挤暴露 (density > 5.0)', axes[0, 1], 1000),
+        ('severe_congestion_exposure_time', '重度拥挤暴露', axes[0, 1], 1000),
         ('time', '疏散完成时间 (s)', axes[1, 0], 1),
-        ('key_node_avg_occupancy', '关键节点平均占用率 (人/㎡)', axes[1, 1], 1)
+        ('key_node_avg_occupancy', '关键节点平均拥堵指标', axes[1, 1], 1)
     ]
 
     for key, title, ax, div in metrics_list:
@@ -3625,10 +3995,10 @@ def plot_charts_multi(G_base, method_metrics, total_p):
             ax.text(bar.get_x() + bar.get_width() / 2, yval + offset, label_text,
                     ha='center', va='bottom', fontsize=11, fontweight='bold')
 
-    plt.savefig("02_System_Macro_Metrics_Comparison.png", dpi=300, bbox_inches="tight")
+    plt.savefig(_output_path("02_System_Macro_Metrics_Comparison.png"), dpi=300, bbox_inches="tight")
     plt.close()
     if key_node_rows:
-        pd.DataFrame(key_node_rows).to_csv("02c_system_key_node_occupancy.csv", index=False, encoding="utf-8-sig")
+        pd.DataFrame(key_node_rows).to_csv(_output_path("02c_system_key_node_occupancy.csv"), index=False, encoding="utf-8-sig")
 
     plt.figure(figsize=(8.5, 6))
     moderate_vals = [metrics_map[label]["moderate_congestion_exposure_time"] / 1000.0 for label in labels]
@@ -3637,7 +4007,7 @@ def plot_charts_multi(G_base, method_metrics, total_p):
     offset = max(ymax * 0.03, 0.12)
     plt.ylim(0, max(ymax * 1.14, 1.0))
     plt.ylabel("中度拥挤暴露时间 (10$^3$ 人·秒)", fontsize=12)
-    plt.title("系统层中度拥挤暴露对比 (density > 3.0)", fontweight="bold", fontsize=16)
+    plt.title("系统层中度拥挤暴露对比", fontweight="bold", fontsize=16)
     plt.grid(axis='y', linestyle='--', alpha=0.6)
     plt.gca().set_axisbelow(True)
     for bar in bars:
@@ -3651,7 +4021,7 @@ def plot_charts_multi(G_base, method_metrics, total_p):
             fontsize=11,
             fontweight='bold'
         )
-    plt.savefig("02d_System_Moderate_Congestion_Comparison.png", dpi=300, bbox_inches="tight")
+    plt.savefig(_output_path("02d_System_Moderate_Congestion_Comparison.png"), dpi=300, bbox_inches="tight")
     plt.close()
 
     baseline = metrics_map[baseline_label]
@@ -3684,7 +4054,7 @@ def plot_charts_multi(G_base, method_metrics, total_p):
     plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.6)
     plt.gca().set_axisbelow(True)
-    plt.savefig("03_System_Improvement_Rates.png", dpi=300, bbox_inches="tight")
+    plt.savefig(_output_path("03_System_Improvement_Rates.png"), dpi=300, bbox_inches="tight")
     plt.close()
 
     if all("wall_clock_runtime_s" in metrics_map[label] for label in labels):
@@ -3706,7 +4076,7 @@ def plot_charts_multi(G_base, method_metrics, total_p):
                 fontsize=11,
                 fontweight='bold'
             )
-        plt.savefig("02b_System_Runtime_Comparison.png", dpi=300, bbox_inches="tight")
+        plt.savefig(_output_path("02b_System_Runtime_Comparison.png"), dpi=300, bbox_inches="tight")
         plt.close()
 
 
@@ -3735,11 +4105,11 @@ def plot_system_evacuation_curve(method_metrics, total_p, filename="01_system_ev
     plt.grid(True, linestyle='--', alpha=0.5)
     plt.legend()
     plt.gca().set_axisbelow(True)
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
+    plt.savefig(_output_path(filename), dpi=300, bbox_inches="tight")
     plt.close()
 
     if csv_rows:
-        pd.DataFrame(csv_rows).to_csv(csv_filename, index=False, encoding="utf-8-sig")
+        pd.DataFrame(csv_rows).to_csv(_output_path(csv_filename), index=False, encoding="utf-8-sig")
 
 
 def plot_line_specific_analysis_multi(method_metrics, pop_dict):
@@ -3793,7 +4163,7 @@ def plot_line_specific_analysis_multi(method_metrics, pop_dict):
     ax2.set_xticks(x)
     ax2.set_xticklabels(lines, fontsize=12)
     ax2.set_ylabel('中度拥挤暴露时间 / Congestion Exposure (10$^3$ pax·s)', fontsize=12)
-    ax2.set_title('各单线路中度拥挤暴露对比 (density > 3)', fontweight='bold', fontsize=14)
+    ax2.set_title('各单线路中度拥挤暴露对比', fontweight='bold', fontsize=14)
     ax2.legend()
     ax2.grid(axis='y', linestyle='--', alpha=0.6)
     ax2.set_axisbelow(True)
@@ -3803,7 +4173,7 @@ def plot_line_specific_analysis_multi(method_metrics, pop_dict):
             ax2.text(bar.get_x() + bar.get_width() / 2, yval + max(exposure_max, 1.0) * 0.02, f'{yval:.1f}', ha='center',
                      va='bottom', fontsize=10, fontweight='bold')
 
-    plt.savefig("05_System_Line_Core_Metrics.png", dpi=300, bbox_inches='tight')
+    plt.savefig(_output_path("05_System_Line_Core_Metrics.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
     shared_active_exits = sorted({
@@ -3845,7 +4215,7 @@ def plot_line_specific_analysis_multi(method_metrics, pop_dict):
         ax.legend(title="人群来源")
         ax.grid(axis='y', linestyle='--', alpha=0.5)
         ax.set_axisbelow(True)
-        plt.savefig(f"06_Exit_Destinations_{_method_output_tag(title)}.png", dpi=300, bbox_inches='tight')
+        plt.savefig(_output_path(f"06_Exit_Destinations_{_method_output_tag(title)}.png"), dpi=300, bbox_inches='tight')
         plt.close()
 
 def _infer_target_by_line_from_graph_state(G):
@@ -3862,8 +4232,20 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
     total_flow_moves, sum_speed_weighted = 0.0, 0.0
     travel_person_seconds = 0.0
     shortest_dists = dict(nx.all_pairs_dijkstra_path_length(G, weight="length"))
+    source_group_targets = _source_group_totals_from_graph(G)
+    core_target_by_line = {line: 0.0 for line in ALL_LINE_IDS}
+    transfer_target_by_line = {line: 0.0 for line in ALL_LINE_IDS}
+    for source_group_id, amount in source_group_targets.items():
+        line_id, source_type, _ = _parse_source_group_id(source_group_id)
+        if line_id not in core_target_by_line:
+            continue
+        if source_type == "transfer_people":
+            transfer_target_by_line[line_id] += float(amount)
+        else:
+            core_target_by_line[line_id] += float(amount)
 
     evacuated_by_line = {line: 0.0 for line in ALL_LINE_IDS}
+    evacuated_by_source_group = {source_group_id: 0.0 for source_group_id in source_group_targets}
     monitored_queue_nodes = [n for n in G.nodes() if _is_queue_node(G, n)]
     monitored_edges = [
         _edge_key(u, v)
@@ -3881,10 +4263,15 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
         "congestion_exposure_time": 0.0,
         "moderate_congestion_exposure_time": 0.0,
         "severe_congestion_exposure_time": 0.0,
+        "edge_congestion_exposure_time": 0.0,
+        "edge_severe_congestion_exposure_time": 0.0,
         "avg_speed": 0.0,
         "avg_travel_time": 0.0,
         "peak_density": 0.0,
+        "peak_congestion_index": 0.0,
         "clearance_times_by_line": {line: None for line, pop in target_by_line.items() if pop > 0},
+        "clearance_times_by_line_core": {line: None for line, pop in core_target_by_line.items() if pop > 0},
+        "clearance_times_by_line_transfer": {line: None for line, pop in transfer_target_by_line.items() if pop > 0},
         "queueing_time_by_line": {line: 0.0 for line in ALL_LINE_IDS},
         "congestion_exposure_by_line": {line: 0.0 for line in ALL_LINE_IDS},
         "moderate_congestion_exposure_by_line": {line: 0.0 for line in ALL_LINE_IDS},
@@ -3904,7 +4291,11 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
             n: {
                 "peak_people": 0.0,
                 "peak_density": 0.0,
+                "peak_load_ratio": 0.0,
+                "peak_congestion_index": 0.0,
                 "density_seconds": 0.0,
+                "congestion_index_seconds": 0.0,
+                "congestion_measure_type": "",
                 "queue_seconds": 0.0,
                 "congestion_seconds": 0.0
             }
@@ -3919,11 +4310,18 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
             for n in monitored_queue_nodes
         },
         "edge_series": {
-            edge_key: {"times": [], "passengers": [], "speed": []}
+            edge_key: {"times": [], "passengers": [], "speed": [], "density": []}
             for edge_key in monitored_edges
         },
         "edge_stats": {
-            edge_key: {"flow_total": 0.0, "peak_passengers": 0.0, "peak_speed": 0.0}
+            edge_key: {
+                "flow_total": 0.0,
+                "peak_passengers": 0.0,
+                "peak_speed": 0.0,
+                "peak_density": 0.0,
+                "density_seconds": 0.0,
+                "congestion_seconds": 0.0,
+            }
             for edge_key in monitored_edges
         }
     }
@@ -3936,10 +4334,12 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
             G,
             current_time,
             evacuated_by_line=evacuated_by_line,
+            evacuated_by_source_group=evacuated_by_source_group,
             exit_usage_dict=metrics["exit_usage_by_line"],
             exit_usage_by_source_group=metrics["exit_usage_by_source_group"],
         )
         evacuated_count += arrived_this_step
+        _refresh_edge_runtime_densities(G, current_time)
         total_evacuated = sum(float(val) for val in evacuated_by_line.values())
         total_remaining = max(sum(float(target) for target in target_by_line.values() if target > 0) - total_evacuated, 0.0)
         metrics["evacuation_curve"]["times"].append(current_time)
@@ -3951,15 +4351,40 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
             if target > 0:
                 # 1. 独立发奖牌：只要这条线跑完了，立刻记录当前时间，不管别人跑没跑完
                 if metrics["clearance_times_by_line"].get(line_id) is None:
-                    if evacuated_by_line[line_id] >= target * 0.99:
+                    if evacuated_by_line[line_id] >= target - 1e-9:
                         metrics["clearance_times_by_line"][line_id] = current_time
 
                 # 2. 独立查缺勤：只要还有任何一条线没跑完，总清空标志就为 False
-                if evacuated_by_line[line_id] < target * 0.99:
+                if evacuated_by_line[line_id] < target - 1e-9:
                     all_lines_cleared = False
 
         # 注意：这里千万不要放在 for 循环里面！
         # 等 for 循环把所有线路都老老实实检查完之后，再判断要不要结束整个大仿真
+        core_evacuated_by_line = {line: 0.0 for line in ALL_LINE_IDS}
+        transfer_evacuated_by_line = {line: 0.0 for line in ALL_LINE_IDS}
+        for source_group_id, amount in evacuated_by_source_group.items():
+            line_id, source_type, _ = _parse_source_group_id(source_group_id)
+            if line_id not in core_evacuated_by_line:
+                continue
+            if source_type == "transfer_people":
+                transfer_evacuated_by_line[line_id] += float(amount)
+            else:
+                core_evacuated_by_line[line_id] += float(amount)
+
+        for line_id, target in core_target_by_line.items():
+            if target <= 0:
+                continue
+            if metrics["clearance_times_by_line_core"].get(line_id) is None:
+                if core_evacuated_by_line[line_id] >= target - 1e-9:
+                    metrics["clearance_times_by_line_core"][line_id] = current_time
+
+        for line_id, target in transfer_target_by_line.items():
+            if target <= 0:
+                continue
+            if metrics["clearance_times_by_line_transfer"].get(line_id) is None:
+                if transfer_evacuated_by_line[line_id] >= target - 1e-9:
+                    metrics["clearance_times_by_line_transfer"][line_id] = current_time
+
         if all_lines_cleared:
             break
 
@@ -3978,13 +4403,25 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
         # 先统计这一时刻节点状态
         for n in active_nodes:
             ppl = G.nodes[n]["people"]
-            node_type = G.nodes[n].get("type", "")
-            density = ppl / max(G.nodes[n].get("area", 1.0), 0.001)
+            congestion_index, measure_type = _node_congestion_index(G, n)
+            moderate_threshold, severe_threshold = _congestion_thresholds_for_measure(measure_type)
+            density = congestion_index if measure_type == "density" else 0.0
+            load_ratio = congestion_index if measure_type == "capacity_ratio" else 0.0
 
             metrics["node_stats"][n]["peak_people"] = max(metrics["node_stats"][n]["peak_people"], ppl)
-            metrics["node_stats"][n]["peak_density"] = max(metrics["node_stats"][n]["peak_density"], density)
-            metrics["node_stats"][n]["density_seconds"] += density * DELTA_T
+            metrics["node_stats"][n]["congestion_measure_type"] = measure_type
+            metrics["node_stats"][n]["peak_congestion_index"] = max(
+                metrics["node_stats"][n]["peak_congestion_index"],
+                congestion_index,
+            )
+            metrics["node_stats"][n]["congestion_index_seconds"] += congestion_index * DELTA_T
+            if measure_type == "density":
+                metrics["node_stats"][n]["peak_density"] = max(metrics["node_stats"][n]["peak_density"], density)
+                metrics["node_stats"][n]["density_seconds"] += density * DELTA_T
+            else:
+                metrics["node_stats"][n]["peak_load_ratio"] = max(metrics["node_stats"][n]["peak_load_ratio"], load_ratio)
             metrics["peak_density"] = max(metrics["peak_density"], density)
+            metrics["peak_congestion_index"] = max(metrics["peak_congestion_index"], congestion_index)
 
             if _is_queue_node(G, n):
                 metrics["queueing_time"] += ppl * DELTA_T
@@ -3997,19 +4434,64 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
                     current_queues_by_line[line_id] += count
 
 
-            if density > MODERATE_CONGESTION_DENSITY_THRESHOLD:
+            if congestion_index > moderate_threshold:
                 current_moderate_congestion += ppl * DELTA_T
                 metrics["node_stats"][n]["congestion_seconds"] += ppl * DELTA_T
                 for line_id, count in G.nodes[n].get("people_dict", {}).items():
                     metrics["congestion_exposure_by_line"][line_id] += count * DELTA_T
                     metrics["moderate_congestion_exposure_by_line"][line_id] += count * DELTA_T
 
-            if density > SEVERE_CONGESTION_DENSITY_THRESHOLD:
+            if congestion_index > severe_threshold:
                 current_severe_congestion += ppl * DELTA_T
                 for line_id, count in G.nodes[n].get("people_dict", {}).items():
                     metrics["severe_congestion_exposure_by_line"][line_id] += count * DELTA_T
 
         # 关键改动：这里不再只走单一 next node，而是允许并行分流
+        edge_snapshot_for_exposure = _capture_edge_snapshot(G, current_time, monitored_edges)
+        current_edge_moderate_congestion = 0.0
+        current_edge_severe_congestion = 0.0
+        for edge_key, snapshot in edge_snapshot_for_exposure.items():
+            passengers = float(snapshot.get("passengers", 0.0))
+            if passengers <= 0:
+                continue
+            try:
+                u, v = [part.strip() for part in edge_key.split("->", 1)]
+            except ValueError:
+                continue
+            if u not in G.nodes or v not in G.nodes or not G.has_edge(u, v):
+                continue
+            density = passengers / _edge_effective_area(G, u, v)
+            metrics["edge_stats"][edge_key]["peak_passengers"] = max(
+                metrics["edge_stats"][edge_key]["peak_passengers"],
+                passengers,
+            )
+            metrics["edge_stats"][edge_key]["peak_density"] = max(
+                metrics["edge_stats"][edge_key]["peak_density"],
+                density,
+            )
+            metrics["edge_stats"][edge_key]["density_seconds"] += density * DELTA_T
+
+            if density > MODERATE_CONGESTION_DENSITY_THRESHOLD:
+                exposure = passengers * DELTA_T
+                current_edge_moderate_congestion += exposure
+                metrics["edge_stats"][edge_key]["congestion_seconds"] += exposure
+                for line_id, count in snapshot.get("line_shares", {}).items():
+                    if count > 0:
+                        metrics["congestion_exposure_by_line"][line_id] += count * DELTA_T
+                        metrics["moderate_congestion_exposure_by_line"][line_id] += count * DELTA_T
+
+            if density > SEVERE_CONGESTION_DENSITY_THRESHOLD:
+                exposure = passengers * DELTA_T
+                current_edge_severe_congestion += exposure
+                for line_id, count in snapshot.get("line_shares", {}).items():
+                    if count > 0:
+                        metrics["severe_congestion_exposure_by_line"][line_id] += count * DELTA_T
+
+        current_moderate_congestion += current_edge_moderate_congestion
+        current_severe_congestion += current_edge_severe_congestion
+        metrics["edge_congestion_exposure_time"] += current_edge_moderate_congestion
+        metrics["edge_severe_congestion_exposure_time"] += current_edge_severe_congestion
+
         moves = get_step_moves(G, method, shortest_dists)
 
         metrics["congestion_exposure_time"] += current_moderate_congestion
@@ -4080,9 +4562,16 @@ def _run_simulation_for_metrics_core(G, method, target_by_line):
         edge_snapshot = _capture_edge_snapshot(G, current_time, monitored_edges)
         for edge_key, series in metrics["edge_series"].items():
             series["times"].append(current_time)
-            series["passengers"].append(edge_snapshot[edge_key]["passengers"] if edge_key in edge_snapshot else 0.0)
-            if edge_snapshot[edge_key]["passengers"] > 0:
-                series["speed"].append(edge_snapshot[edge_key]["speed_sum"] / edge_snapshot[edge_key]["passengers"])
+            passengers = edge_snapshot[edge_key]["passengers"] if edge_key in edge_snapshot else 0.0
+            series["passengers"].append(passengers)
+            try:
+                u, v = [part.strip() for part in edge_key.split("->", 1)]
+                density = passengers / _edge_effective_area(G, u, v) if G.has_edge(u, v) else 0.0
+            except ValueError:
+                density = 0.0
+            series["density"].append(density)
+            if passengers > 0:
+                series["speed"].append(edge_snapshot[edge_key]["speed_sum"] / passengers)
             else:
                 series["speed"].append(np.nan)
 
@@ -4349,140 +4838,7 @@ def _path_total_length(G, path):
     return sum(float(G[path[i]][path[i + 1]].get("length", 0.0)) for i in range(len(path) - 1))
 
 
-def run_single_path_case_suite(
-    G_base,
-    case_specs=None,
-    evacuees=SINGLE_PATH_CASE_POPULATION,
-    methods=(PAPER_SINGLE_PATH_METHOD, ANT_COLONY_METHOD, OUR_SINGLE_PATH_METHOD),
-    long_csv="15_single_path_case_results.csv",
-    wide_csv="16_single_path_case_comparison.csv",
-    summary_csv="17_single_path_case_summary.csv",
-    plot_file="18_single_path_case_metrics.png",
-):
-    case_specs = case_specs or SINGLE_PATH_CASE_SPECS
-    long_rows = []
-
-    for case_spec in case_specs:
-        case_state = build_single_path_case_state(G_base, case_spec, evacuees=evacuees)
-        shortest_dists = dict(nx.all_pairs_dijkstra_path_length(case_state, weight="length"))
-
-        for method in methods:
-            metrics = run_simulation_for_existing_state(
-                case_state,
-                method=method,
-                target_by_line={case_spec["line"]: float(evacuees)},
-            )
-            if method == ANT_COLONY_METHOD:
-                path = standard_aco_pathfinder(case_state, case_spec["origin"], shortest_dists, fruin_speed)
-            else:
-                path = get_best_path_to_exit(case_state, case_spec["origin"], method, shortest_dists)
-            target_exit = path[-1] if path else None
-            long_rows.append(
-                {
-                    "case_id": case_spec["case_id"],
-                    "line": case_spec["line"],
-                    "origin": case_spec["origin"],
-                    "start_role": case_spec["start_role"],
-                    "evacuees": float(evacuees),
-                    "method": _normalize_method(method),
-                    "method_label": _method_display_name(method),
-                    "target_exit": target_exit,
-                    "path": format_path(path),
-                    "path_length": _path_total_length(case_state, path),
-                    "evacuation_time": metrics["time"],
-                    "queueing_time": metrics["queueing_time"],
-                    "congestion_exposure_time": metrics["congestion_exposure_time"],
-                    "avg_speed": metrics["avg_speed"],
-                }
-            )
-
-    long_df = pd.DataFrame(long_rows)
-    long_df.to_csv(long_csv, index=False, encoding="utf-8-sig")
-
-    wide_df = (
-        long_df.pivot_table(
-            index=["case_id", "line", "origin", "start_role", "evacuees"],
-            columns="method",
-            values=[
-                "target_exit",
-                "path",
-                "path_length",
-                "evacuation_time",
-                "queueing_time",
-                "congestion_exposure_time",
-                "avg_speed",
-            ],
-            aggfunc="first",
-        )
-        .sort_index()
-    )
-    wide_df.columns = [f"{metric}_{method}" for metric, method in wide_df.columns]
-    wide_df = wide_df.reset_index()
-    wide_df.to_csv(wide_csv, index=False, encoding="utf-8-sig")
-
-    summary_df = (
-        long_df.groupby(["line", "method", "method_label"])
-        .agg(
-            case_count=("case_id", "count"),
-            mean_path_length=("path_length", "mean"),
-            mean_evacuation_time=("evacuation_time", "mean"),
-            mean_queueing_time=("queueing_time", "mean"),
-            mean_congestion_exposure=("congestion_exposure_time", "mean"),
-            mean_avg_speed=("avg_speed", "mean"),
-        )
-        .reset_index()
-    )
-    summary_df.to_csv(summary_csv, index=False, encoding="utf-8-sig")
-
-    method_order = [_normalize_method(m) for m in methods]
-    case_order = [spec["case_id"] for spec in case_specs]
-    pivot_time = long_df.pivot(index="case_id", columns="method", values="evacuation_time").reindex(case_order)
-    pivot_queue = long_df.pivot(index="case_id", columns="method", values="queueing_time").reindex(case_order)
-    pivot_exposure = long_df.pivot(index="case_id", columns="method", values="congestion_exposure_time").reindex(case_order)
-
-    fig, axes = plt.subplots(3, 1, figsize=(14, 13), sharex=True)
-    x = np.arange(len(case_order))
-    width = min(0.25, 0.8 / max(len(method_order), 1))
-    colors = ["#4E79A7", "#59A14F", "#F28E2B", "#B07AA1"]
-    metrics_plot = [
-        (pivot_time, "Evacuation time (s)", axes[0]),
-        (pivot_queue, "Queueing time (person*s)", axes[1]),
-        (pivot_exposure, "Congestion exposure (person*s)", axes[2]),
-    ]
-
-    for plot_idx, (pivot_df, ylabel, ax) in enumerate(metrics_plot):
-        for method_idx, method in enumerate(method_order):
-            vals = pivot_df[method].to_numpy(dtype=float)
-            offset = (method_idx - (len(method_order) - 1) / 2.0) * width
-            ax.bar(
-                x + offset,
-                vals,
-                width=width,
-                color=colors[method_idx % len(colors)],
-                edgecolor="black",
-                label=_method_display_name(method),
-            )
-        ax.set_ylabel(ylabel)
-        ax.grid(axis="y", linestyle="--", alpha=0.5)
-        if plot_idx == 0:
-            ax.legend()
-
-    axes[-1].set_xticks(x)
-    axes[-1].set_xticklabels(case_order, rotation=25, ha="right")
-    fig.suptitle(
-        f"Literature-Style Single-Path Benchmark ({int(evacuees)} evacuees per case, 12 cases)",
-        fontsize=16,
-        fontweight="bold",
-    )
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig(plot_file, dpi=300, bbox_inches="tight")
-    plt.close()
-
-    return long_df, wide_df, summary_df
-
-
-
-def plot_detailed_dynamics_by_line(G_base, metrics_trad, metrics_imp, pop_dict):
+def plot_detailed_dynamics_by_line(G_base, metrics_baseline, metrics_guided, pop_dict):
     """方案A：按文献口径画等待区队列与关键设施旅行时间。"""
     lines = [l for l, d in pop_dict.items() if sum(d.values()) > 0]
     if not lines: return
@@ -4494,27 +4850,31 @@ def plot_detailed_dynamics_by_line(G_base, metrics_trad, metrics_imp, pop_dict):
 
     for idx, line in enumerate(lines):
         ax = axes[idx]
-        times_trad, q_trad, nodes_trad = _aggregate_line_node_series(G_base, metrics_trad, line, "queue", normalize_by_area=False)
-        times_imp, q_imp, nodes_imp = _aggregate_line_node_series(G_base, metrics_imp, line, "queue", normalize_by_area=False)
-        _, occ_trad, _ = _aggregate_line_node_series(G_base, metrics_trad, line, "queue", normalize_by_area=True)
-        _, occ_imp, _ = _aggregate_line_node_series(G_base, metrics_imp, line, "queue", normalize_by_area=True)
+        times_baseline, q_baseline, nodes_baseline = _aggregate_line_node_series(
+            G_base, metrics_baseline, line, "queue", normalize_by_area=False
+        )
+        times_guided, q_guided, _ = _aggregate_line_node_series(
+            G_base, metrics_guided, line, "queue", normalize_by_area=False
+        )
+        _, occ_baseline, _ = _aggregate_line_node_series(G_base, metrics_baseline, line, "queue", normalize_by_area=True)
+        _, occ_guided, _ = _aggregate_line_node_series(G_base, metrics_guided, line, "queue", normalize_by_area=True)
 
-        q_trad = _smooth_display_series(q_trad, window=5)
-        q_imp = _smooth_display_series(q_imp, window=5)
-        occ_trad = _smooth_display_series(occ_trad, window=5)
-        occ_imp = _smooth_display_series(occ_imp, window=5)
+        q_baseline = _smooth_display_series(q_baseline, window=5)
+        q_guided = _smooth_display_series(q_guided, window=5)
+        occ_baseline = _smooth_display_series(occ_baseline, window=5)
+        occ_guided = _smooth_display_series(occ_guided, window=5)
 
         ax2 = ax.twinx()
-        ax.plot(times_trad, q_trad, 'r-', linewidth=2.2, label="Traditional 队列长度", alpha=0.85)
-        ax.plot(times_imp, q_imp, 'g-', linewidth=2.2, label="OurSinglePath 队列长度")
-        ax2.plot(times_trad, occ_trad, 'r--', linewidth=1.8, label="Traditional 占用率", alpha=0.65)
-        ax2.plot(times_imp, occ_imp, 'g--', linewidth=1.8, label="OurSinglePath 占用率")
+        ax.plot(times_baseline, q_baseline, 'r-', linewidth=2.2, label="ImprovedAStar 队列长度", alpha=0.85)
+        ax.plot(times_guided, q_guided, 'g-', linewidth=2.2, label="AdaptiveSingleNextHop 队列长度")
+        ax2.plot(times_baseline, occ_baseline, 'r--', linewidth=1.8, label="ImprovedAStar 占用率", alpha=0.65)
+        ax2.plot(times_guided, occ_guided, 'g--', linewidth=1.8, label="AdaptiveSingleNextHop 占用率")
 
-        node_hint = ", ".join(nodes_trad[:3]) if nodes_trad else "no-queue-node"
+        node_hint = ", ".join(nodes_baseline[:3]) if nodes_baseline else "no-queue-node"
         ax.set_title(f'{line} 等待区排队\n[{node_hint}]', fontsize=13, fontweight='bold')
         ax.set_xlabel('时间 (s)')
         ax.set_ylabel('队列长度 (人)')
-        ax2.set_ylabel('等待区占用率 (人/㎡)')
+        ax2.set_ylabel('等待区占用率 / 设施负载率')
         ax.grid(True, linestyle=":", alpha=0.7)
 
         handles1, labels1 = ax.get_legend_handles_labels()
@@ -4524,7 +4884,7 @@ def plot_detailed_dynamics_by_line(G_base, metrics_trad, metrics_imp, pop_dict):
     # 隐藏多余的子图
     for idx in range(len(lines), len(axes)): fig.delaxes(axes[idx])
     plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig("03_System_Line_Queue_Dynamics.png", dpi=300, bbox_inches='tight')
+    plt.savefig(_output_path("03_System_Line_Queue_Dynamics.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
     # ==== 2. 各线路关键设施实际旅行时间 ====
@@ -4534,15 +4894,19 @@ def plot_detailed_dynamics_by_line(G_base, metrics_trad, metrics_imp, pop_dict):
 
     for idx, line in enumerate(lines):
         ax = axes[idx]
-        times_trad, travel_trad, nodes_trad = _aggregate_line_node_series(G_base, metrics_trad, line, "travel_time", normalize_by_area=False)
-        times_imp, travel_imp, nodes_imp = _aggregate_line_node_series(G_base, metrics_imp, line, "travel_time", normalize_by_area=False)
-        travel_trad = _smooth_display_series(travel_trad, window=5)
-        travel_imp = _smooth_display_series(travel_imp, window=5)
+        times_baseline, travel_baseline, nodes_baseline = _aggregate_line_node_series(
+            G_base, metrics_baseline, line, "travel_time", normalize_by_area=False
+        )
+        times_guided, travel_guided, _ = _aggregate_line_node_series(
+            G_base, metrics_guided, line, "travel_time", normalize_by_area=False
+        )
+        travel_baseline = _smooth_display_series(travel_baseline, window=5)
+        travel_guided = _smooth_display_series(travel_guided, window=5)
 
-        node_hint = ", ".join(nodes_trad[:3]) if nodes_trad else "no-queue-node"
+        node_hint = ", ".join(nodes_baseline[:3]) if nodes_baseline else "no-queue-node"
 
-        ax.plot(times_trad, travel_trad, 'r-', linewidth=2.5, label="Traditional (传统)", alpha=0.85)
-        ax.plot(times_imp, travel_imp, 'b-', linewidth=2.8, label="OurSinglePath")
+        ax.plot(times_baseline, travel_baseline, 'r-', linewidth=2.5, label="ImprovedAStar", alpha=0.85)
+        ax.plot(times_guided, travel_guided, 'b-', linewidth=2.8, label="AdaptiveSingleNextHop")
 
         ax.set_title(f'{line} 关键设施旅行时间\n[{node_hint}]', fontsize=13, fontweight='bold')
         ax.set_xlabel('时间 (s)')
@@ -4552,89 +4916,9 @@ def plot_detailed_dynamics_by_line(G_base, metrics_trad, metrics_imp, pop_dict):
 
     for idx in range(len(lines), len(axes)): fig.delaxes(axes[idx])
     plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig("04_System_Line_Speed_Dynamics.png", dpi=300, bbox_inches='tight')
+    plt.savefig(_output_path("04_System_Line_Speed_Dynamics.png"), dpi=300, bbox_inches='tight')
     plt.close()
 
-
-def plot_article_style_dynamics_multi(G_base, method_metrics, pop_dict):
-    """【三算法同台竞技版】输出关键节点排队与链路速度的 3 线对比折线图 (X轴为秒)"""
-    lines = [l for l, d in pop_dict.items() if sum(d.values()) > 0]
-    if not lines:
-        return
-
-    # 使用传统算法(基准)来定位全站最严重的 16 个瓶颈节点和链路
-    ref_metrics = method_metrics[0][1]
-    article_edges = _select_article_links(ref_metrics, top_k=16)
-    article_nodes = _select_article_nodes(ref_metrics, top_k=16)
-
-    # 定义三算法颜色: 传统(红), 文献(橙), 本文(蓝)
-    color_map = ['#E63946', '#F4A261', '#457B9D']
-
-    # ==== Fig.13: 关键链路有效速度 3线对比 ====
-    fig, axes = plt.subplots(4, 4, figsize=(18, 16))
-    fig.suptitle("关键链路有效速度动态演化 (三算法对比)", fontsize=20, fontweight="bold", y=0.95)
-    axes = np.atleast_1d(axes).flatten()
-
-    for idx in range(16):
-        ax = axes[idx]
-        if idx >= len(article_edges):
-            ax.axis("off")
-            continue
-        edge_key = article_edges[idx]
-
-        # 在同一个子图里画 3 条线
-        for m_idx, (label, metrics) in enumerate(method_metrics):
-            series = metrics.get("edge_series", {}).get(edge_key, {})
-            times = np.array(series.get("times", []), dtype=float)  # 保留为秒
-            speeds = np.array(series.get("speed", []), dtype=float)
-            speeds = _smooth_display_series(speeds, window=5)
-            if times.size > 0:
-                ax.plot(times, speeds, color=color_map[m_idx], linewidth=1.8, label=label)
-
-        ax.set_title(edge_key.replace(" -> ", "\n"), fontsize=9, fontweight="bold")
-        ax.set_xlabel("Time (s)")  # 已改为秒
-        ax.set_ylabel("Speed (m/s)")
-        ax.grid(True, linestyle=":", alpha=0.6)
-        if idx == 0:  # 只在第一个图显示图例避免遮挡
-            ax.legend(fontsize=8, loc="upper right")
-
-    plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig("07_System_Link_Speed_3Way_Dynamics.png", dpi=300, bbox_inches="tight")
-    plt.close()
-
-    # ==== Fig.14: 关键节点排队长度 3线对比 ====
-    fig, axes = plt.subplots(4, 4, figsize=(18, 16))
-    fig.suptitle("关键节点排队长度动态演化 (三算法对比)", fontsize=20, fontweight="bold", y=0.95)
-    axes = np.atleast_1d(axes).flatten()
-
-    for idx in range(16):
-        ax = axes[idx]
-        if idx >= len(article_nodes):
-            ax.axis("off")
-            continue
-        node = article_nodes[idx]
-
-        # 在同一个子图里画 3 条线
-        max_q = 0
-        for m_idx, (label, metrics) in enumerate(method_metrics):
-            times, queues = _get_node_series(metrics, node, "queue")
-            queues = _smooth_display_series(queues, window=5)
-            if times.size > 0:
-                ax.plot(times, queues, color=color_map[m_idx], linewidth=2.0, label=label)
-                if len(queues) > 0 and not np.isnan(queues).all():
-                    max_q = max(max_q, np.nanmax(queues))
-
-        ax.set_title(node, fontsize=9, fontweight="bold")
-        ax.set_xlabel("Time (s)")  # 已改为秒
-        ax.set_ylabel("Queue length (person)")
-        ax.set_ylim(bottom=-2, top=max(max_q * 1.1, 10))  # 动态调整Y轴高度
-        ax.grid(True, linestyle=":", alpha=0.6)
-        if idx == 0:
-            ax.legend(fontsize=8, loc="upper right")
-
-    plt.tight_layout(rect=[0, 0, 1, 0.93])
-    plt.savefig("08_System_Node_Queue_3Way_Dynamics.png", dpi=300, bbox_inches="tight")
-    plt.close()
 
 def get_evacuation_mode():
     print("\n" + "=" * 60)
@@ -4651,28 +4935,6 @@ def get_evacuation_mode():
         if choice in ['1', '2', '3', '4']:
             return int(choice)
         print("❌ 输入无效，请重新输入！")
-
-
-def get_experiment_mode():
-    print("\n" + "=" * 60)
-    print("🧪 请选择实验类型：\n")
-    print("  [1] 系统层四场景仿真 (四条线路联动)")
-    print("  [2] 单路径 100 人基准实验")
-    print("-" * 60)
-    while True:
-        choice = input("👉 请输入序号 [1 / 2] 并按回车: ").strip()
-        if choice in ['1', '2']:
-            return int(choice)
-        print("❌ 输入无效，请重新输入！")
-
-
-def run_single_path_benchmark_workflow(G):
-    print("\n📘 正在运行文献式单路径基准实验 (12组案例, 每组100人, 单源-多出口)...")
-    single_long_df, single_wide_df, single_summary_df = run_single_path_case_suite(G)
-    print(f"   已生成: 15_single_path_case_results.csv ({len(single_long_df)} rows)")
-    print(f"   已生成: 16_single_path_case_comparison.csv ({len(single_wide_df)} cases)")
-    print(f"   已生成: 17_single_path_case_summary.csv")
-    print(f"   已生成: 18_single_path_case_metrics.png")
 
 
 def run_system_mode_workflow(G):
@@ -4712,18 +4974,14 @@ def run_system_mode_workflow(G):
         }
         total_p += (t1 + t2 + pw + hp + tp)
 
+    output_dir, scenario_label = _set_system_mode_output_dir(mode)
+    print(f"==== Scenario output: {scenario_label} -> {output_dir} ====")
+    plot_initial_topology(G)
+
     print(f"\n==== 目标客流: {total_p} 人 ====")
 
-    aco_state = copy.deepcopy(G)
-    init_people(aco_state, current_pop_dict, apply_noise=False)
-    aco_targets = {
-        line: sum(d.values())
-        for line, d in current_pop_dict.items()
-        if sum(d.values()) > 0
-    }
-    aco_start_ts = time.perf_counter()
     # 核心修改：使用普通的 run_simulation_for_metrics_timed，和你的 A* 待遇一样
-    metrics_aco = run_simulation_for_metrics_timed(aco_state, current_pop_dict, method=ANT_COLONY_METHOD)
+    metrics_aco = run_simulation_for_metrics_timed(G, current_pop_dict, method=ANT_COLONY_METHOD)
     # 墙上时间已在 timed 里记录，无需重复相减，直接保持原样覆盖即可
     metrics_paper = run_simulation_for_metrics_timed(G, current_pop_dict, method=PAPER_SINGLE_PATH_METHOD)
     metrics_guided = run_simulation_for_metrics_timed(G, current_pop_dict, method=OUR_SINGLE_PATH_METHOD)
@@ -4732,7 +4990,7 @@ def run_system_mode_workflow(G):
     G_disrupted = copy.deepcopy(G)
     if critical_facility in G_disrupted.nodes:
         _apply_node_disruption(G_disrupted, critical_facility, factor=0.0)
-        print(f"\n🔧 扰动设施已固定为: {critical_facility} (节点及其相连通路中断)")
+        print(f"\n🔧 单独扰动验证: {critical_facility} (节点及其相连通路中断)")
     else:
         raise ValueError(f"扰动设施 {critical_facility} 不存在，请检查网络拓扑。")
     metrics_guided_disrupted = run_simulation_for_metrics_timed(G_disrupted, current_pop_dict, method=OUR_SINGLE_PATH_METHOD)
@@ -4750,20 +5008,29 @@ def run_system_mode_workflow(G):
         f"全站时间 {metrics_paper['time']:.1f}s | 实际运行 {metrics_paper['wall_clock_runtime_s']:.2f}s"
     )
     print(
-        f"[OurSinglePath] 总排队 {metrics_guided['queueing_time']:.1f} 人·秒 | "
+        f"[AdaptiveSingleNextHop] 总排队 {metrics_guided['queueing_time']:.1f} 人·秒 | "
         f"中度拥挤暴露 {metrics_guided['congestion_exposure_time']:.1f} 人·秒 | "
         f"重度拥挤暴露 {metrics_guided.get('severe_congestion_exposure_time', 0.0):.1f} 人·秒 | "
         f"全站时间 {metrics_guided['time']:.1f}s | 实际运行 {metrics_guided['wall_clock_runtime_s']:.2f}s"
     )
+    print(
+        f"[AdaptiveSingleNextHop | 扰动:{critical_facility}] 总排队 {metrics_guided_disrupted['queueing_time']:.1f} 人·秒 | "
+        f"中度拥挤暴露 {metrics_guided_disrupted['congestion_exposure_time']:.1f} 人·秒 | "
+        f"重度拥挤暴露 {metrics_guided_disrupted.get('severe_congestion_exposure_time', 0.0):.1f} 人·秒 | "
+        f"全站时间 {metrics_guided_disrupted['time']:.1f}s | 实际运行 {metrics_guided_disrupted['wall_clock_runtime_s']:.2f}s"
+    )
     method_metrics = [
         ("ACO", metrics_aco),
         ("ImprovedAStar", metrics_paper),
-        ("OurSinglePath", metrics_guided),
+        ("AdaptiveSingleNextHop", metrics_guided),
     ]
     summary_rows = []
     active_lines = [line for line, vals in current_pop_dict.items() if sum(vals.values()) > 0]
     for label, met in method_metrics:
         summary_rows.append({
+            "scenario_mode": mode,
+            "scenario_label": scenario_label,
+            "total_people": total_p,
             "method": label,
             "queueing_time": met["queueing_time"],
             "congestion_exposure_time": met["congestion_exposure_time"],
@@ -4773,20 +5040,40 @@ def run_system_mode_workflow(G):
             "avg_speed": met["avg_speed"],
             "wall_clock_runtime_s": met.get("wall_clock_runtime_s"),
     })
-    pd.DataFrame(summary_rows).to_csv("02_system_method_summary.csv", index=False, encoding="utf-8-sig")
+    pd.DataFrame(summary_rows).to_csv(_output_path("02_system_method_summary.csv"), index=False, encoding="utf-8-sig")
+    pd.DataFrame([{
+        "scenario_mode": mode,
+        "scenario_label": scenario_label,
+        "total_people": total_p,
+        "scenario": "node_and_incident_edges_blocked",
+        "blocked_facility": critical_facility,
+        "method": "AdaptiveSingleNextHop",
+        "queueing_time": metrics_guided_disrupted["queueing_time"],
+        "congestion_exposure_time": metrics_guided_disrupted["congestion_exposure_time"],
+        "moderate_congestion_exposure_time": metrics_guided_disrupted["congestion_exposure_time"],
+        "severe_congestion_exposure_time": metrics_guided_disrupted.get("severe_congestion_exposure_time", 0.0),
+        "time": metrics_guided_disrupted["time"],
+        "time_delta_vs_normal": metrics_guided_disrupted["time"] - metrics_guided["time"],
+        "queueing_delta_vs_normal": metrics_guided_disrupted["queueing_time"] - metrics_guided["queueing_time"],
+        "avg_speed": metrics_guided_disrupted["avg_speed"],
+        "wall_clock_runtime_s": metrics_guided_disrupted.get("wall_clock_runtime_s"),
+    }]).to_csv(_output_path("02e_system_disruption_summary.csv"), index=False, encoding="utf-8-sig")
     line_rows = []
     for label, met in method_metrics:
         for line in active_lines:
             line_rows.append({
+                "scenario_mode": mode,
+                "scenario_label": scenario_label,
+                "total_people": total_p,
                 "method": label,
                 "line": line,
                 "clearance_time": met["clearance_times_by_line"].get(line) if met["clearance_times_by_line"].get(line) is not None else met["time"],
+                "core_clearance_time": met.get("clearance_times_by_line_core", {}).get(line),
+                "transfer_clearance_time": met.get("clearance_times_by_line_transfer", {}).get(line),
                 "congestion_exposure_time": met["congestion_exposure_by_line"].get(line, 0.0),
                 "moderate_congestion_exposure_time": met["congestion_exposure_by_line"].get(line, 0.0),
             })
-    pd.DataFrame(line_rows).to_csv("03_system_line_summary.csv", index=False, encoding="utf-8-sig")
-    print("\n📊 正在生成论文式关键链路/关键节点图 (三算法速度、队列对比)...")
-    plot_article_style_dynamics_multi(G, method_metrics, current_pop_dict)
+    pd.DataFrame(line_rows).to_csv(_output_path("03_system_line_summary.csv"), index=False, encoding="utf-8-sig")
     print("\n📈 正在生成整体疏散完成曲线图...")
     plot_system_evacuation_curve(method_metrics, total_p)
     print("\n📊 正在生成宏观指标深度对比图 (Bar柱状图与消散折线图)...")
@@ -4794,18 +5081,6 @@ def run_system_mode_workflow(G):
 
     print("\n📊 正在生成各线路专属清空分析图表...")
     plot_line_specific_analysis_multi(method_metrics, current_pop_dict)
-
-    print("\n🔍 正在生成抗拥挤的高清热力快照 (请稍候)...")
-    plot_comparative_snapshots(
-        G,
-        pop_dict=current_pop_dict,
-        time_points=[30, 90, 200],
-        methods=[
-            ("ACO", ANT_COLONY_METHOD, "ACO (蚁群优化基线)"),
-            ("ImprovedAStar", PAPER_SINGLE_PATH_METHOD, "ImprovedAStar (文献改进A*)"),
-            ("OurSinglePath", OUR_SINGLE_PATH_METHOD, "OurSinglePath (动态单路径方法)"),
-        ],
-    )
 
     print("\n📝 正在生成三算法事件日志与瓶颈追踪CSV...")
     source_nodes = [n for n, d in G.nodes(data=True) if d.get("type") in {"stair", "escalator"}]
@@ -4829,12 +5104,15 @@ def run_system_mode_workflow(G):
             for line_id, count in lines_ppl.items():
                 if count > 0:
                     exit_dest_rows.append({
+                        "Scenario_Mode": mode,
+                        "Scenario_Label": scenario_label,
+                        "Total_People": total_p,
                         "Method": label,
                         "Exit_Name": ext.replace("Exit_", ""),
                         "Profile_Line": line_id,
                         "Evacuated_People": round(count, 1),
                     })
-    pd.DataFrame(exit_dest_rows).to_csv("16_Profile_to_Exit_Distribution.csv", index=False, encoding="utf-8-sig")
+    pd.DataFrame(exit_dest_rows).to_csv(_output_path("16_Profile_to_Exit_Distribution.csv"), index=False, encoding="utf-8-sig")
     print("\n✅ 所有的深度分析图表和日志已完美生成！")
 
 
@@ -4845,9 +5123,4 @@ if __name__ == "__main__":
     except Exception:
         pass
     G = build_graph()
-    experiment_mode = get_experiment_mode()
-    if experiment_mode == 1:
-        plot_initial_topology(G)
-        run_system_mode_workflow(G)
-    else:
-        run_single_path_benchmark_workflow(G)
+    run_system_mode_workflow(G)
